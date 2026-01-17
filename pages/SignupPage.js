@@ -60,6 +60,9 @@ class SignupPage extends BasePage{
     }
 
     async signup(firstName, lastName, email, password) {
+        if (!firstName || !lastName || !email || !password) {
+            throw new Error('All signup fields (firstName, lastName, email, password) are required');
+        }
         await this.page.fill(this.locators.firstName, firstName);
         await this.page.fill(this.locators.lastName, lastName);
         await this.page.fill(this.locators.email, email);

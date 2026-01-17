@@ -13,7 +13,7 @@ export default defineConfig({
   workers: isCI ? 1 : 1,
   
 
-  timeout: 60 * 1000,
+  timeout: 30 * 1000,
   reporter: [
     ['html', {
       outputFolder: 'playwright-report',

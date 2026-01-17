@@ -9,10 +9,14 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test('test @chromium', async ({ page }) => {
-  await page.goto('https://github.com/login');
-  await expect(page).toHaveScreenshot('github-login.png');
-  await page.getByRole('textbox', { name: 'Username or email address' }).click();
-  await page.getByRole('textbox', { name: 'Username or email address' }).fill('test');
-  await expect(page).toHaveScreenshot('github-login.png');
+test.describe('Visual', () => {
+  test.describe('Screenshot Tests', () => {
+    test('test @chromium', async ({ page }) => {
+      await page.goto('https://github.com/login');
+      await expect(page).toHaveScreenshot('github-login-initial.png');
+      await page.getByRole('textbox', { name: 'Username or email address' }).click();
+      await page.getByRole('textbox', { name: 'Username or email address' }).fill('test');
+      await expect(page).toHaveScreenshot('github-login-filled.png');
+    });
+  });
 });

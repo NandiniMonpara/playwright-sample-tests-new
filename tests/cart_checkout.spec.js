@@ -1,6 +1,9 @@
 // @ts-check
-import { expect, test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import AllPages from '../pages/AllPages.js';
+import dotenv from 'dotenv';
+
+dotenv.config({ override: true });
 
 let allPages;
 
@@ -9,114 +12,116 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-async function login(username = process.env.USERNAME, password = process.env.PASSWORD) {
+async function login(
+  username = process.env.USERNAME,
+  password = process.env.PASSWORD
+) {
   await allPages.loginPage.clickOnUserProfileIcon();
   await allPages.loginPage.validateSignInPage();
   await allPages.loginPage.login(username, password);
 }
 
-async function login1(username = process.env.USERNAME1, password = process.env.PASSWORD) {
-  await allPages.loginPage.clickOnUserProfileIcon();
-  await allPages.loginPage.validateSignInPage();
-  await allPages.loginPage.login(username, password);
-}
+/* =================================================
+   LEVEL 1 — ROOT SUITE
+================================================= */
+test.describe('Application E2E Tests', () => {
 
-async function logout() {
-  await allPages.loginPage.clickOnUserProfileIcon();
-  await allPages.loginPage.clickOnLogoutButton();
-}
+  /* =============================================
+     LEVEL 2 — FEATURE
+  ============================================= */
+  test.describe('Cart Management', () => {
 
-// test('Verify That a New User Can Successfully Complete the Journey from Registration to a Multiple Order Placement @chromium', async () => {
-//     const email = `test+${Date.now()}@test.com`;
-//     const firstName = 'Test';
-//     const lastName = 'User';
+    /* =========================================
+       LEVEL 3 — SCENARIO
+    ========================================= */
+    test.describe('Delete Product from Cart', () => {
 
-//     let productName= `Rode NT1-A Condenser Mic`;
+      test('User can delete selected product from cart @ios', async () => {
+        const productName = 'GoPro HERO10 Black';
 
-//   await test.step('Verify that user can register successfully', async () => {
-//     // Signup
-//     await allPages.loginPage.clickOnUserProfileIcon();
-//     await allPages.loginPage.validateSignInPage();
-//     await allPages.loginPage.clickOnSignupLink();
-//     await allPages.signupPage.assertSignupPage();
-//     await allPages.signupPage.signup(firstName, lastName, email, process.env.PASSWORD);
-//     await allPages.signupPage.verifySuccessSignUp();
-//   })
+        await login();
+        await allPages.inventoryPage.clickOnShopNowButton();
+        await allPages.inventoryPage.clickOnAllProductsLink();
+        await allPages.inventoryPage.searchProduct(productName);
+        await allPages.inventoryPage.clickOnAddToCartIcon();
 
-//   await test.step('Verify that user can login successfully', async () => {
-//     // Login as new user
-//     await allPages.loginPage.validateSignInPage();
-//     await allPages.loginPage.login(email, process.env.PASSWORD);
-//     await allPages.loginPage.verifySuccessSignIn();
-//     await expect(allPages.homePage.getHomeNav()).toBeVisible({ timeout: 30000 });
-//   })
+        await allPages.cartPage.clickOnCartIcon();
+        await allPages.cartPage.verifyCartItemVisible(productName);
+        await allPages.cartPage.clickOnDeleteProductIcon();
+        await allPages.cartPage.verifyEmptyCartMessage();
+      });
 
-//   await test.step('Navigate to All Products and add view details of a random product', async () => {
-//     await allPages.homePage.clickOnShopNowButton();
-//     await allPages.allProductsPage.assertAllProductsTitle();
-//     await allPages.allProductsPage.clickNthProduct(1);
-//     await allPages.productDetailsPage.clickOnReviewsTab();
-//     await allPages.productDetailsPage.assertReviewsTab();
-//     await allPages.productDetailsPage.clickOnAdditionalInfoTab();
-//     await allPages.productDetailsPage.assertAdditionalInfoTab();
-//   })
+    });
 
-//   await test.step('Add product to cart, change quantity, add new address and checkout', async () => {
-//     await allPages.productDetailsPage.clickAddToCartButton();
-//     await allPages.productDetailsPage.clickCartIcon();
-//     await allPages.cartPage.clickIncreaseQuantityButton();
-//     await allPages.cartPage.clickOnCheckoutButton();
-//     await allPages.checkoutPage.verifyCheckoutTitle();
-//     await allPages.checkoutPage.selectCashOnDelivery();
-//     await allPages.checkoutPage.verifyCashOnDeliverySelected();
-//     await allPages.checkoutPage.fillShippingAddress(process.env.SFIRST_NAME, email, process.env.SCITY, process.env.SSTATE, process.env.SSTREET_ADD, process.env.SZIP_CODE, process.env.SCOUNTRY);
-//     await allPages.checkoutPage.clickSaveAddressButton();
-//     await allPages.checkoutPage.clickOnPlaceOrder();
-//     await allPages.checkoutPage.verifyOrderPlacedSuccessfully();
-//     await allPages.checkoutPage.verifyOrderConfirmedTitle();
-//     await allPages.checkoutPage.clickOnContinueShoppingButton();
-//   })
+  });
 
-//   await test.step('Add another product to cart, select existing address and checkout', async () => {
-//     await allPages.homePage.clickOnShopNowButton();
-//     await allPages.allProductsPage.assertAllProductsTitle();
-//     await allPages.allProductsPage.clickNthProduct(1);
-//     await allPages.productDetailsPage.clickAddToCartButton();
-//     await allPages.productDetailsPage.clickCartIcon();
-//     await allPages.cartPage.clickOnCheckoutButton();
-//     await allPages.checkoutPage.verifyCheckoutTitle();
-//     await allPages.checkoutPage.selectCashOnDelivery();
-//     await allPages.checkoutPage.verifyCashOnDeliverySelected();
-//     await allPages.checkoutPage.clickOnPlaceOrder();
-//     await allPages.checkoutPage.verifyOrderPlacedSuccessfully();
-//   })
-// });
+  /* =============================================
+     LEVEL 2 — FEATURE
+  ============================================= */
+  test.describe('Registration to Order', () => {
 
-// test('Verify that the new user is able to Sign Up, Log In, and Navigate to the Home Page Successfully @chromium', async () => {
-//     const email = `test+${Date.now()}@test.com`;
-//     const firstName = 'Test';
-//     const lastName = 'User';
+    /* =========================================
+       LEVEL 3 — SCENARIO
+    ========================================= */
+    test.describe('Single Order and Cancellation', () => {
 
-//   await test.step('Verify that user can register successfully', async () => {
-//     await allPages.loginPage.clickOnUserProfileIcon();
-//     await allPages.loginPage.validateSignInPage();
-//     await allPages.loginPage.clickOnSignupLink();
-//     await allPages.signupPage.assertSignupPage();
-//     await allPages.signupPage.signup(firstName, lastName, email, process.env.PASSWORD);
-//     await allPages.signupPage.verifySuccessSignUp();
-//   })
+      test('New user can place and cancel order @chromium', async () => {
+        const email = `test+${Date.now()}@test.com`;
 
-//   await test.step('Verify that user can login successfully', async () => {
-//     await allPages.loginPage.validateSignInPage();
-//     await allPages.loginPage.login(email, process.env.PASSWORD);
-//     await allPages.loginPage.verifySuccessSignIn();
-//     await expect(allPages.homePage.getHomeNav()).toBeVisible({ timeout: 30000 });
-//   })
-// })
+        await test.step('Register user', async () => {
+          await allPages.loginPage.clickOnUserProfileIcon();
+          await allPages.loginPage.clickOnSignupLink();
+          await allPages.signupPage.signup(
+            'Test',
+            'User',
+            email,
+            process.env.PASSWORD
+          );
+        });
 
-// test('Verify that user can update personal information @firefox', async () => {
-//     await login();
-//     await allPages.userPage.clickOnUserProfileIcon();
-//     await allPages.userPage.updatePersonalInfo();
-//     await allPages.userPage.verifyPersonalInfoUpdated();
-// });
+        await test.step('Login and place order', async () => {
+          await allPages.loginPage.login(email, process.env.PASSWORD);
+          await expect(allPages.homePage.getHomeNav()).toBeVisible();
+
+          await allPages.homePage.clickAllProductsNav();
+          await allPages.allProductsPage.clickNthProduct(1);
+          await allPages.productDetailsPage.clickAddToCartButton();
+          await allPages.cartPage.clickOnCheckoutButton();
+          await allPages.checkoutPage.selectCashOnDelivery();
+          await allPages.checkoutPage.clickOnPlaceOrder();
+        });
+
+        await test.step('Cancel order', async () => {
+          await allPages.orderPage.clickOnMyOrdersTab();
+          await allPages.orderPage.clickCancelOrderButton();
+          await allPages.orderPage.confirmCancellation();
+        });
+      });
+
+    });
+
+  });
+
+  /* =============================================
+     LEVEL 2 — FEATURE
+  ============================================= */
+  test.describe('User Profile', () => {
+
+    /* =========================================
+       LEVEL 3 — SCENARIO
+    ========================================= */
+    test.describe('Update Personal Information', () => {
+
+      test('User can update personal info @firefox', async () => {
+        await login();
+        await allPages.userPage.clickOnUserProfileIcon();
+        await allPages.userPage.updatePersonalInfo();
+        await allPages.userPage.verifyPersonalInfoUpdated();
+      });
+
+    });
+
+  });
+
+});
+

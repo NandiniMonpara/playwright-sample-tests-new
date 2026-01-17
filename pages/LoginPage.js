@@ -48,7 +48,25 @@ class LoginPage extends BasePage{
     }
 
     async clickOnUserProfileIcon() {
-        await this.page.locator(this.locators.userIcon).click();
+        // Try desktop icon first, fallback to mobile if needed
+        const userIcon = this.page.locator('[data-testid="header-user-icon"]').or(this.page.locator(this.locators.userIcon));
+        try {
+            await userIcon.waitFor({ state: 'visible', timeout: 5000 });
+            await userIcon.click();
+        } catch (e) {
+            // If element is not visible (common on mobile), try alternative selectors
+            // Check for mobile menu button or hamburger menu
+            const mobileMenu = this.page.locator('[data-testid="mobile-menu-button"]').or(this.page.locator('button[aria-label*="menu" i]'));
+            if (await mobileMenu.isVisible().catch(() => false)) {
+                await mobileMenu.click();
+                // After opening mobile menu, try to find user icon again
+                await userIcon.waitFor({ state: 'visible', timeout: 3000 });
+                await userIcon.click();
+            } else {
+                // Last resort: force click if element exists in DOM
+                await userIcon.click({ force: true });
+            }
+        }
     }
 
     async assertLoginPage() {
@@ -59,10 +77,13 @@ class LoginPage extends BasePage{
     }
 
     async login(username, password) {
-        // await this.page.fill(this.locators.userName, username);
-        // await this.page.fill(this.locators.password, password);
-        // await this.page.click(this.locators.loginButton);
-        // await this.page.waitForTimeout(2000);
+        if (!username || !password) {
+            throw new Error('Username and password are required for login');
+        }
+        await this.page.fill(this.locators.userName, username);
+        await this.page.fill(this.locators.password, password);
+        await this.page.click(this.locators.loginButton);
+        await this.page.waitForTimeout(2000);
     }
 
     async clickOnLogoutButton() {
