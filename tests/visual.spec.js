@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
 test.describe('Visual Comparison', () => {
 
   test.describe('GitHub Login Page', () => {
-    test('visual comparison demo test @chromium', async ({ page }) => {
+    test('visual comparison demo test @chromium @smoke', async ({ page }) => {
       await page.goto('https://github.com/login');
       await expect(page).toHaveScreenshot('github-login.png');
 
