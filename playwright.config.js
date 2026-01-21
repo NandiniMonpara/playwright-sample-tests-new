@@ -8,7 +8,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
-  workers: isCI ? 1 : 1,
+  workers: isCI ? 5 : 5,
 
   timeout: 60 * 1000,
   reporter: [
@@ -22,7 +22,7 @@ export default defineConfig({
 
   use: {
     baseURL: 'https://demo.alphabin.co/',
-    headless: false,
+    headless: true,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
