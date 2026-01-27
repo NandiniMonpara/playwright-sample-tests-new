@@ -173,21 +173,17 @@ on:
   workflow_dispatch:
 
 jobs:
-  run-tests:
-    name: Run shard ${{ matrix.shardIndex }}/5
+  test:
     runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
       matrix:
-        shardIndex: [1, 2, 3, 4, 5]
-        shardTotal: [5]
+        shard: [1/5, 2/5, 3/5, 4/5, 5/5]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
@@ -203,27 +199,14 @@ jobs:
           echo "COUNTRY=${{ secrets.COUNTRY }}" >> .env
           echo "ZIP_CODE=${{ secrets.ZIP_CODE }}" >> .env
 
-      - name: Cache npm dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+      - run: npm ci
+      - run: npx playwright install --with-deps
 
-      - name: Install dependencies & Playwright browsers
-        run: |
-          npm ci
-          npx playwright install --with-deps
-
-      - name: Run Playwright tests with TestDino
+      - name: Run tests with TestDino
         env:
           TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
           TESTDINO_RUNTIME: staging
         run: |
-          npx tdpw test \
-            --ci-run-id=${{ github.run_id }} \
-            -- \
-            --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} \
-            --grep="@chromium|@firefox|@webkit|@android|@ios"
+          npx tdpw test --shard=${{ matrix.shard }}
+
           
