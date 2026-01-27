@@ -160,8 +160,7 @@
 
 
 # .github/workflows/playwright-daily.yml
-# Runs Playwright test shards every day at **11 : 42 AM IST** (06 : 12 UTC)
-# plus anytime you trigger it manually from the Actions tab.
+# Runs Playwright test shards with TestDino (staging) + merges reports
 
 name: Run Playwright tests
 
@@ -178,17 +177,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shardIndex: [1,2,3,4,5]
+        shardIndex: [1, 2, 3, 4, 5]
         shardTotal: [5]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js 18.x
+      # ✅ Required Node version
+      - name: Setup Node.js 20.x
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
+      # ✅ Required env variables for tests
       - name: Create .env file
         run: |
           echo "USERNAME=${{ secrets.USERNAME }}" >> .env
@@ -201,6 +203,7 @@ jobs:
           echo "COUNTRY=${{ secrets.COUNTRY }}" >> .env
           echo "ZIP_CODE=${{ secrets.ZIP_CODE }}" >> .env
 
+      # ✅ Cache npm dependencies
       - name: Cache npm dependencies
         uses: actions/cache@v3
         with:
@@ -209,21 +212,26 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - name: Install deps + browsers
+      # ✅ Install dependencies + TestDino (.tgz) + Playwright browsers
+      - name: Install dependencies & browsers
         run: |
           npm ci
+          npm install ./testdino-playwright-1.0.0.tgz
           npx playwright install --with-deps chromium firefox webkit
 
+      # ✅ Run Playwright shard with TestDino (STAGING)
       - name: Run Playwright shard with TestDino
         env:
           TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
+          TESTDINO_SERVER_URL: https://staging-api.testdino.com
           TESTDINO_RUNTIME: staging
         run: |
-          npx tdpw test \
+          npx tdpw test -- \
+            --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} \
             --grep "@chromium|@firefox|@webkit|@android|@ios" \
-            --reporter=blob \
-            --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+            --reporter=blob
 
+      # ✅ Upload blob report (needed for merge)
       - name: Upload blob report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -239,18 +247,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js 18.x
+      - name: Setup Node.js 20.x
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
-      - name: Install deps
+      # ✅ Install deps (TestDino not required here)
+      - name: Install dependencies
         run: |
           npm ci
           npx playwright install --with-deps
 
+      # ✅ Download all shard blob reports
       - name: Download all blob reports
         uses: actions/download-artifact@v4
         with:
@@ -258,10 +269,13 @@ jobs:
           pattern: blob-report-*
           merge-multiple: true
 
-      - name: Merge HTML report
-        run: npx playwright merge-reports ./all-blob-reports
+      # ✅ Merge Playwright HTML report
+      - name: Merge Playwright HTML report
+        run: |
+          npx playwright merge-reports ./all-blob-reports
 
-      - name: Upload combined report
+      # ✅ Upload merged Playwright report
+      - name: Upload combined Playwright report
         uses: actions/upload-artifact@v4
         with:
           name: Playwright Test Report
