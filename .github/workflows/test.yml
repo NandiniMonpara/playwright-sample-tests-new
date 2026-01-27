@@ -224,7 +224,6 @@ jobs:
         env:
           TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
           TESTDINO_SERVER_URL: https://staging-api.testdino.com
-          TESTDINO_RUNTIME: staging
         run: |
           npx playwright test -- \
             --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} \
