@@ -222,6 +222,8 @@ jobs:
           TESTDINO_RUNTIME: staging
         run: |
           npx tdpw test \
-            --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} \
             --ci-run-id=${{ github.run_id }} \
+            -- \
+            --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} \
             --grep="@chromium|@firefox|@webkit|@android|@ios"
+          
