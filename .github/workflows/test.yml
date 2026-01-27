@@ -169,24 +169,29 @@ on:
   push:
   pull_request:
   schedule:
-    - cron: '30 3 * * 1-5'
+    - cron: '30 3 * * 1-5' # 11:00 AM IST
   workflow_dispatch:
 
 jobs:
   test:
+    name: Run shard ${{ matrix.shard }}
     runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
-        shard: [1/5, 2/5, 3/5, 4/5, 5/5]
+        shard: [1/3, 2/3, 3/3]
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      # ✅ Node 20 (required)
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
 
+      # ✅ Keep env secrets (needed by tests)
       - name: Create .env file
         run: |
           echo "USERNAME=${{ secrets.USERNAME }}" >> .env
@@ -199,14 +204,25 @@ jobs:
           echo "COUNTRY=${{ secrets.COUNTRY }}" >> .env
           echo "ZIP_CODE=${{ secrets.ZIP_CODE }}" >> .env
 
-      - run: npm ci
-      - run: npx playwright install --with-deps
+      # ✅ Cache dependencies
+      - name: Cache npm dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
-      - name: Run tests with TestDino
+      # ✅ Install deps + browsers
+      - name: Install dependencies & Playwright browsers
+        run: |
+          npm ci
+          npx playwright install --with-deps
+
+      # ✅ Official TestDino execution (README-compliant)
+      - name: Run tests with TestDino (sharded)
         env:
           TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
           TESTDINO_RUNTIME: staging
         run: |
           npx tdpw test --shard=${{ matrix.shard }}
-
-          
