@@ -226,10 +226,9 @@ jobs:
           TESTDINO_SERVER_URL: https://staging-api.testdino.com
           TESTDINO_RUNTIME: staging
         run: |
-          npx tdpw test -- \
+          npx playwright test -- \
             --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} \
             --grep "@chromium|@firefox|@webkit|@android|@ios" \
-            --reporter=blob
 
       # ✅ Upload blob report (needed for merge)
       - name: Upload blob report
