@@ -6,13 +6,13 @@ let allPages;
 
 test.beforeEach(async ({ page }) => {
   allPages = new AllPages(page);
-  await page.goto('/');
+  await page.goto('https://github.com/login');
 });
 
 test.describe('Visual Comparison', () => {
 
   test.describe('GitHub Login Page', () => {
-    test('visual comparison demo test @chromium @smoke', async ({ page }) => {
+    test('visual comparison demo test @chromium', async ({ page }) => {
       await page.goto('https://github.com/login');
       await expect(page).toHaveScreenshot('github-login.png');
 
@@ -21,5 +21,4 @@ test.describe('Visual Comparison', () => {
       await expect(page).toHaveScreenshot('github-login-changed.png');
     });
   });
-
 });
