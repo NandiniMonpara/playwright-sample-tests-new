@@ -20,6 +20,7 @@ export default defineConfig({
     ['json', { outputFile: './playwright-report/report.json' }],
     ['@testdino/playwright', {
       token: process.env.TESTDINO_TOKEN,
+      debug: false,
       serverUrl: 'https://staging-api.testdino.com',
     }],
   ],
