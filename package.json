@@ -11,7 +11,7 @@
     "@types/node": "^24.1.0"
   },
   "dependencies": {
-    "@testdino/playwright": "file:testdino-playwright-1.0.0.tgz",
+    "@testdino/playwright": "^1.0.1",
     "dotenv": "^17.2.1",
     "playwright": "^1.55.0"
   }
