@@ -16,20 +16,20 @@ export default defineConfig({
       outputFolder: 'playwright-report',
       open: 'never'
     }],
-    // ['blob', { outputDir: 'blob-report' }], // Blob reporter for merging
-    // ['json', { outputFile: './playwright-report/report.json' }],
+    ['blob', { outputDir: 'blob-report' }], // Blob reporter for merging
+    ['json', { outputFile: './playwright-report/report.json' }],
     ['list'],
-    // ['@testdino/playwright', {
-    //   token: process.env.TESTDINO_TOKEN,
-    //   debug: true,
-    //   serverUrl: 'https://staging-api.testdino.com',
-    // }],
+    ['@testdino/playwright', {
+      token: process.env.TESTDINO_TOKEN,
+      debug: true,
+      serverUrl: 'https://staging-api.testdino.com',
+    }],
   ],
 
   use: {
     baseURL: 'https://storedemo.testdino.com/',
     headless: true,
-    trace: 'on-first-retry',
+    trace: 'on',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
