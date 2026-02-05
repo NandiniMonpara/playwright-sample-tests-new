@@ -20,9 +20,9 @@ export default defineConfig({
     ['json', { outputFile: './playwright-report/report.json' }],
     ['list'],
     ['@testdino/playwright', {
-      token: process.env.TESTDINO_TOKEN,
-      debug: true,
-      serverUrl: 'https://staging-api.testdino.com',
+      token: "trx_development_798669bd4d893952e1ba1726ea6c6d0257b701a19b0f57d113b1b641049e9889",
+      debug: false,
+      serverUrl: 'https://railwayless-iris-ebulliently.ngrok-free.app',
     }],
   ],
 

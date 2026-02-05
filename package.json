@@ -7,11 +7,11 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
-    "@playwright/test": "^1.54.1",
+    "@playwright/test": "^1.57.0",
     "@types/node": "^24.1.0"
   },
   "dependencies": {
-    "@testdino/playwright": "^1.0.4",
+    "@testdino/playwright": "^1.0.5",
     "dotenv": "^17.2.1",
     "playwright": "^1.55.0"
   }

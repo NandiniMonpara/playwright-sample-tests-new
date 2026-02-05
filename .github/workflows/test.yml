@@ -1,196 +1,31 @@
-# name: Run Playwright tests
-
-# on:
-#   push:
-#   pull_request:
-#   schedule:
-#     - cron: '30 3 * * 1-5' # 11:00 AM IST
-#   workflow_dispatch:
-
-# jobs:
-#   run-tests:
-#     name: Run shard ${{ matrix.shardIndex }}/3
-#     runs-on: ubuntu-latest
-
-#     strategy:
-#       fail-fast: false
-#       matrix:
-#         shardIndex: [1, 2, 3]
-#         shardTotal: [3]
-
-#     steps:
-#       - uses: actions/checkout@v4
-
-#       # ✅ REQUIRED: Node 20
-#       - name: Setup Node.js 20.x
-#         uses: actions/setup-node@v3
-#         with:
-#           node-version: '20'
-
-#       - name: Create .env file
-#         run: |
-#           echo "USERNAME=${{ secrets.USERNAME }}" >> .env
-#           echo "PASSWORD=${{ secrets.PASSWORD }}" >> .env
-#           echo "NEW_PASSWORD=${{ secrets.NEW_PASSWORD }}" >> .env
-#           echo "FIRST_NAME=${{ secrets.FIRST_NAME }}" >> .env
-#           echo "STREET_NAME=${{ secrets.STREET_NAME }}" >> .env
-#           echo "CITY=${{ secrets.CITY }}" >> .env
-#           echo "STATE=${{ secrets.STATE }}" >> .env
-#           echo "COUNTRY=${{ secrets.COUNTRY }}" >> .env
-#           echo "ZIP_CODE=${{ secrets.ZIP_CODE }}" >> .env
-
-#       - name: Cache npm dependencies
-#         uses: actions/cache@v3
-#         with:
-#           path: ~/.npm
-#           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-#           restore-keys: |
-#             ${{ runner.os }}-node-
-
-#       - name: Install deps + browsers
-#         run: |
-#           npm ci
-#           npx playwright install --with-deps chromium firefox webkit
-
-#       # ✅ FULL + RERUN LOGIC
-#       - name: Run Playwright (rerun failed tests if applicable)
-#         env:
-#           TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
-#         run: |
-#           echo "GitHub run attempt: ${{ github.run_attempt }}"
-
-#           if [[ "${{ github.run_attempt }}" -gt 1 ]]; then
-#             echo "Detected re-run. Checking failed test metadata from TestDino."
-
-#             npx tdpw last-failed \
-#               --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} \
-#               > last-failed-flags.txt
-
-#             EXTRA_PW_FLAGS="$(cat last-failed-flags.txt)"
-
-#             if [[ -n "$EXTRA_PW_FLAGS" ]]; then
-#               echo "Running only failed tests for this shard:"
-#               echo "$EXTRA_PW_FLAGS"
-
-#               # IMPORTANT: JSON + BLOB BOTH REQUIRED
-#               eval "npx playwright test $EXTRA_PW_FLAGS --reporter=blob,json"
-#               exit 0
-#             fi
-
-#             echo "No failed test metadata found. Falling back to full shard."
-#           fi
-
-#           # First run (full shard)
-#           npx playwright test \
-#             --grep="@chromium|@firefox|@webkit|@android|@ios" \
-#             --reporter=blob,json \
-#             --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
-
-#       - name: Upload blob report
-#         if: ${{ !cancelled() }}
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: blob-report-${{ matrix.shardIndex }}
-#           path: ./blob-report
-#           retention-days: 1
-
-#       # ✅ THIS WILL SHOW "Metadata cached successfully ✔" WHEN JSON EXISTS
-#       - name: Cache tdpw last failed metadata
-#         if: always()
-#         env:
-#           TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
-#         run: |
-#           npx tdpw cache --verbose
-
-#   merge-reports:
-#     name: Merge Reports
-#     needs: run-tests
-#     if: always()
-#     runs-on: ubuntu-latest
-
-#     steps:
-#       - uses: actions/checkout@v4
-
-#       # ✅ Node 20 here as well
-#       - name: Setup Node.js 20.x
-#         uses: actions/setup-node@v3
-#         with:
-#           node-version: '20'
-
-#       - name: Cache npm dependencies
-#         uses: actions/cache@v3
-#         with:
-#           path: ~/.npm
-#           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-#           restore-keys: |
-#             ${{ runner.os }}-node-
-
-#       - name: Install deps + browsers
-#         run: |
-#           npm ci
-#           npx playwright install --with-deps
-
-#       - name: Download all blob reports
-#         uses: actions/download-artifact@v4
-#         with:
-#           path: ./all-blob-reports
-#           pattern: blob-report-*
-#           merge-multiple: true
-
-#       - name: Merge HTML & JSON reports
-#         run: npx playwright merge-reports --config=playwright.config.js ./all-blob-reports
-
-#       - name: Upload combined report
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: Playwright Test Report
-#           path: ./playwright-report
-#           retention-days: 14
-
-#       - name: Send TestDino report
-#         run: |
-#           npx --yes tdpw ./playwright-report \
-#             --token="${{ secrets.TESTDINO_TOKEN }}" \
-#             --upload-html \
-#             --upload-traces \
-#             --verbose
-
-
-
-
-
-# .github/workflows/playwright-daily.yml
-# Runs Playwright test shards with TestDino (staging) + merges reports
-
-name: Run Playwright tests
+name: Playwright Tests
 
 on:
   push:
   pull_request:
-  workflow_dispatch:
 
 jobs:
-  run-tests:
-    name: Run shard ${{ matrix.shardIndex }}/5
+  test:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
-
+    container:
+      image: mcr.microsoft.com/playwright:v1.57.0-jammy
     strategy:
       fail-fast: false
       matrix:
         shardIndex: [1, 2, 3, 4, 5]
         shardTotal: [5]
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # ✅ Required Node version
-      - name: Setup Node.js 20.x
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
 
-      # ✅ Required env variables for tests
+      - name: Install dependencies
+        run: |
+          npm install
+
       - name: Create .env file
         run: |
           echo "USERNAME=${{ secrets.USERNAME }}" >> .env
@@ -203,78 +38,7 @@ jobs:
           echo "COUNTRY=${{ secrets.COUNTRY }}" >> .env
           echo "ZIP_CODE=${{ secrets.ZIP_CODE }}" >> .env
 
-      # ✅ Cache npm dependencies
-      - name: Cache npm dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      # ✅ Install dependencies + TestDino (.tgz) + Playwright browsers
-      - name: Install dependencies & browsers
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium firefox webkit
-
-      # ✅ Run Playwright shard with TestDino (STAGING)
-      - name: Run Playwright shard with TestDino
+      - name: Run Playwright tests
+        run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
         env:
-          TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
-          TESTDINO_SERVER_URL: https://staging-api.testdino.com
-        run: |
-          npx playwright test \
-            --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} \
-            --grep "@chromium|@firefox|@webkit|@android|@ios|@api" \
-
-      # ✅ Upload blob report (needed for merge)
-      - name: Upload blob report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: blob-report-${{ matrix.shardIndex }}
-          path: ./blob-report
-          retention-days: 1
-
-  merge-reports:
-    name: Merge Reports
-    needs: run-tests
-    if: always()
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 20.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      # ✅ Install deps (TestDino not required here)
-      - name: Install dependencies
-        run: |
-          npm ci
-          npx playwright install --with-deps
-
-      # ✅ Download all shard blob reports
-      - name: Download all blob reports
-        uses: actions/download-artifact@v4
-        with:
-          path: ./all-blob-reports
-          pattern: blob-report-*
-          merge-multiple: true
-
-      # ✅ Merge Playwright HTML report
-      - name: Merge Playwright HTML report
-        run: |
-          npx playwright merge-reports ./all-blob-reports
-
-      # ✅ Upload merged Playwright report
-      - name: Upload combined Playwright report
-        uses: actions/upload-artifact@v4
-        with:
-          name: Playwright Test Report
-          path: ./playwright-report
-          retention-days: 14
+          HOME: /root
