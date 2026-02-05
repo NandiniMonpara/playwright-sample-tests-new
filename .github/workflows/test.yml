@@ -25,7 +25,6 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-          npm install testdino-playwright-1.0.0.tgz
 
       - name: Create .env file
         run: |
