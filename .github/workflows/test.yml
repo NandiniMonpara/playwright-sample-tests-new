@@ -16,18 +16,30 @@ jobs:
         shardIndex: [1, 2, 3, 4, 5]
         shardTotal: [5]
     steps:
-    - uses: actions/checkout@v4                                                                                                                                                                                        
-    
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 20
-    
-    - name: Install dependencies
-      run: |
-        npm install
-        npm install testdino-playwright-1.0.0.tgz
-    
-    - name: Run Playwright tests
-      run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
-      env:
-        HOME: /root
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          npm install
+          npm install testdino-playwright-1.0.0.tgz
+
+      - name: Create .env file
+        run: |
+          echo "USERNAME=${{ secrets.USERNAME }}" >> .env
+          echo "PASSWORD=${{ secrets.PASSWORD }}" >> .env
+          echo "NEW_PASSWORD=${{ secrets.NEW_PASSWORD }}" >> .env
+          echo "FIRST_NAME=${{ secrets.FIRST_NAME }}" >> .env
+          echo "STREET_NAME=${{ secrets.STREET_NAME }}" >> .env
+          echo "CITY=${{ secrets.CITY }}" >> .env
+          echo "STATE=${{ secrets.STATE }}" >> .env
+          echo "COUNTRY=${{ secrets.COUNTRY }}" >> .env
+          echo "ZIP_CODE=${{ secrets.ZIP_CODE }}" >> .env
+
+      - name: Run Playwright tests
+        run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+        env:
+          HOME: /root
