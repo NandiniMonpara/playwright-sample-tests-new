@@ -22,6 +22,7 @@ export default defineConfig({
     ['@testdino/playwright', {
       token: "trx_development_798669bd4d893952e1ba1726ea6c6d0257b701a19b0f57d113b1b641049e9889",
       debug: false,
+      ciRunId: `ci-run-${process.env.GITHUB_RUN_ID}` || 'local-run-id',
       serverUrl: 'https://railwayless-iris-ebulliently.ngrok-free.app',
     }],
   ],
