@@ -20,10 +20,12 @@ export default defineConfig({
     ['json', { outputFile: './playwright-report/report.json' }],
     ['list'],
     ['@testdino/playwright', {
-      token: "trx_development_798669bd4d893952e1ba1726ea6c6d0257b701a19b0f57d113b1b641049e9889",
+      token: "trx_staging_8494aa9424c2b968b44e3a99508ca5b07f035a49951dbd97ccaa7de5c850f14b",
+      serverUrl: 'https://staging-api.testdino.com',
+      // token: "trx_development_798669bd4d893952e1ba1726ea6c6d0257b701a19b0f57d113b1b641049e9889",
+      // serverUrl: 'https://railwayless-iris-ebulliently.ngrok-free.app',
       debug: false,
       ciRunId: `ci-run-${process.env.GITHUB_RUN_ID}` || 'local-run-id',
-      serverUrl: 'https://railwayless-iris-ebulliently.ngrok-free.app',
     }],
   ],
 
