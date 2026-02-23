@@ -1,31 +1,35 @@
-name: Playwright Tests
+name: Run Playwright tests
 
 on:
   push:
   pull_request:
+  schedule:
+    - cron: '30 3 * * 1-5'
+  workflow_dispatch:
 
 jobs:
-  test:
-    timeout-minutes: 60
+  run-tests:
+    name: Run shard ${{ matrix.shardIndex }}/5
     runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/playwright:v1.57.0-jammy
+
     strategy:
       fail-fast: false
       matrix:
         shardIndex: [1, 2, 3, 4, 5]
         shardTotal: [5]
+
     steps:
+      # ✅ Checkout
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      # ✅ Node Setup (UPDATED)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
-      - name: Install dependencies
-        run: |
-          npm install
-
+      # ✅ Create ENV
       - name: Create .env file
         run: |
           echo "USERNAME=${{ secrets.USERNAME }}" >> .env
@@ -38,7 +42,86 @@ jobs:
           echo "COUNTRY=${{ secrets.COUNTRY }}" >> .env
           echo "ZIP_CODE=${{ secrets.ZIP_CODE }}" >> .env
 
-      - name: Run Playwright tests
-        run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+      # ✅ Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # ✅ Install Playwright browsers
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      # ✅ Debug projects (optional but useful)
+      - name: List Playwright projects
+        run: npx playwright list --projects
+
+      # ✅ Run shard (REMOVED duplicate reporter & grep conflict)
+      - name: Run Playwright shard
         env:
-          HOME: /root
+          TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
+          TESTDINO_SERVER_URL: https://staging-api.testdino.com
+        run: |
+          npx playwright test \
+            --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+
+      # ✅ Upload shard blob report
+      - name: Upload blob report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shardIndex }}
+          path: blob-report
+          retention-days: 1
+
+
+  merge-reports:
+    name: Merge Reports
+    needs: run-tests
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ✅ Node setup
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # ✅ Install deps
+      - name: Install dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps
+
+      # ✅ Download shard reports
+      - name: Download blob reports
+        uses: actions/download-artifact@v4
+        with:
+          path: all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+
+      # ✅ Merge reports
+      - name: Merge Playwright reports
+        run: |
+          npx playwright merge-reports ./all-blob-reports
+
+      # ✅ Upload merged HTML report
+      - name: Upload combined report
+        uses: actions/upload-artifact@v4
+        with:
+          name: Playwright Test Report
+          path: playwright-report
+          retention-days: 14
+
+      # ✅ NEW TestDino Upload (Upgraded Package ✅)
+      - name: Upload report to TestDino
+        run: |
+          TESTDINO_RUNTIME=staging \
+          npx --yes tdpw ./playwright-report \
+            --token="${{ secrets.TESTDINO_TOKEN }}" \
+            --upload-html \
+            --upload-traces \
+            --verbose
