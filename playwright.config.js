@@ -1,38 +1,36 @@
 // @ts-check
 import { defineConfig, devices } from '@playwright/test';
-import * as dotenv from 'dotenv';
 
-dotenv.config({ quiet: true });
 const isCI = !!process.env.CI;
 
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: isCI,
-  retries: isCI ? 1 : 0,
-  workers: isCI ? 1 : 1,
-  
+  retries: isCI ? 0 : 0,
+  workers: isCI ? 5 : 5,
 
-  timeout: 30 * 1000,
+  timeout: 60 * 1000,
+
+
   reporter: [
     ['html', {
       outputFolder: 'playwright-report',
       open: 'never'
     }],
-    ['blob', { outputDir: 'blob-report' }], // Blob reporter for merging
+    ['blob', { outputDir: 'blob-report' }], 
     ['json', { outputFile: './playwright-report/report.json' }],
     ['@testdino/playwright', {
-      token: "trx_development_798669bd4d893952e1ba1726ea6c6d0257b701a19b0f57d113b1b641049e9889",
-      serverUrl: "https://railwayless-iris-ebulliently.ngrok-free.app",
-      debug: false,
-      artifacts: false
-    }]
+      token: process.env.TESTDINO_TOKEN,
+      debug: true,
+      serverUrl: 'https://staging-api.testdino.com',
+    }],
   ],
 
   use: {
-    baseURL: 'https://storedemo.testdino.com',
+    baseURL: 'https://storedemo.testdino.com/',
     headless: true,
-    trace: 'on-first-retry',
+    trace: 'on',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
@@ -62,6 +60,11 @@ export default defineConfig({
       name: 'ios',
       use: { ...devices['iPhone 12'] },
       grep: /@ios/, // only run tests tagged @ios
+    },
+    {
+      name: 'api',
+      use: { ...devices['API'] },
+      grep: /@api/, // only run tests tagged @api
     },
   ],
 });
