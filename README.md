@@ -9,7 +9,7 @@ Automated end-to-end tests for Ecommerce demo store using [Playwright](https://p
 - `pages/` — Page Object Models
 - `tests/` — Test specifications
 - `playwright.config.js` — Playwright configuration
-- `playwright-report/` — HTML test reports
+- `playwright-report/` — HTML and JSON test reports
 - `.github/workflows/test.yml` — CI/CD pipeline
 
 ---
@@ -25,6 +25,11 @@ Automated end-to-end tests for Ecommerce demo store using [Playwright](https://p
 
 ```sh
 npm install
+```
+
+If you haven't installed browsers yet:
+```sh
+npx playwright install
 ```
 
 ---
@@ -43,12 +48,26 @@ npx playwright show-report
 
 ---
 
+## Reports
+
+Reports are generated in `playwright-report/`. When integrating with Testdino, ensure both HTML and JSON reporters are enabled in `playwright.config.js`.
+
+Example reporter configuration:
+```js
+reporter: [
+  ['html', { outputFolder: 'playwright-report', open: 'never' }],
+  ['json', { outputFile: './playwright-report/report.json' }],
+]
+```
+
+---
+
 ## Testdino Integration
 
 [Testdino](https://testdino.com/) enables cloud-based Playwright reporting.
 
-> **Important:**  
-> Make sure your `playwright.config.js` includes both the HTML and JSON reporters.  
+> **Important:**
+> Make sure your `playwright.config.js` includes both the HTML and JSON reporters.
 > The HTML report and JSON report must be available for Testdino to process your test results.
 
 Example configuration:

@@ -123,10 +123,14 @@ class UserPage extends BasePage {
     await this.page.locator(this.locators.lastName).fill('Testing');
     await this.page.locator(this.locators.contactNumber).fill('9999999999');
     await this.page.locator(this.locators.savePersonalInfo).click();
+    // Wait for save operation to complete before reloading
+    await this.page.waitForTimeout(2000);
   }
 
   async verifyPersonalInfoUpdated() {
     await this.page.reload();
+    // Wait for page to fully load after reload
+    await this.page.waitForLoadState('networkidle');
     await expect(this.page.locator(this.locators.firstName)).toHaveValue('Test1');
     await expect(this.page.locator(this.locators.lastName)).toHaveValue('Testing');
     await expect(this.page.locator(this.locators.contactNumber)).toHaveValue('9999999999');
