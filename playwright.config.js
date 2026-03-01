@@ -12,13 +12,14 @@ export default defineConfig({
 
   timeout: 60 * 1000,
 
+  snapshotPathTemplate: '{testDir}/{testFileDir}/__snapshots__/{arg}{-projectName}{-snapshotSuffix}{ext}',
 
   reporter: [
     ['html', {
       outputFolder: 'playwright-report',
       open: 'never'
     }],
-    ['blob', { outputDir: 'blob-report' }], 
+    ['blob', { outputDir: 'blob-report' }],
     ['json', { outputFile: './playwright-report/report.json' }],
     ['@testdino/playwright', {
       token: process.env.TESTDINO_TOKEN,
@@ -39,32 +40,32 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      grep: /@chromium/, // only run tests tagged @chromium
+      grep: /@chromium/,
     },
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
-      grep: /@firefox/, // only run tests tagged @firefox
+      grep: /@firefox/,
     },
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
-      grep: /@webkit/, // only run tests tagged @webkit
+      grep: /@webkit/,
     },
     {
       name: 'android',
       use: { ...devices['Pixel 5'] },
-      grep: /@android/, // only run tests tagged @android
+      grep: /@android/,
     },
     {
       name: 'ios',
       use: { ...devices['iPhone 12'] },
-      grep: /@ios/, // only run tests tagged @ios
+      grep: /@ios/,
     },
     {
       name: 'api',
       use: { ...devices['API'] },
-      grep: /@api/, // only run tests tagged @api
+      grep: /@api/,
     },
   ],
 });
