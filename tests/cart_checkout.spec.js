@@ -124,4 +124,3 @@ test.describe('Application E2E Tests', () => {
   });
 
 });
-

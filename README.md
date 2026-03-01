@@ -66,8 +66,8 @@ reporter: [
 
 [Testdino](https://testdino.com/) enables cloud-based Playwright reporting.
 
-> **Important:**  
-> Make sure your `playwright.config.js` includes both the HTML and JSON reporters.  
+> **Important:**
+> Make sure your `playwright.config.js` includes both the HTML and JSON reporters.
 > The HTML report and JSON report must be available for Testdino to process your test results.
 
 Example configuration:

@@ -7,23 +7,24 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: isCI,
-  retries: isCI ? 0 : 0,
+  retries: isCI ? 1 : 0,
   workers: isCI ? 5 : 5,
 
   timeout: 60 * 1000,
-
 
   reporter: [
     ['html', {
       outputFolder: 'playwright-report',
       open: 'never'
     }],
-    ['blob', { outputDir: 'blob-report' }], 
+    ['blob', { outputDir: 'blob-report' }],
     ['json', { outputFile: './playwright-report/report.json' }],
+    ['list'],
     ['@testdino/playwright', {
-      token: process.env.TESTDINO_TOKEN,
-      debug: true,
+      token: "trx_staging_8494aa9424c2b968b44e3a99508ca5b07f035a49951dbd97ccaa7de5c850f14b",
       serverUrl: 'https://staging-api.testdino.com',
+      debug: false,
+      ciRunId: `ci-run-${process.env.GITHUB_RUN_ID}` || 'local-run-id',
     }],
   ],
 
