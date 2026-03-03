@@ -2,24 +2,62 @@
 import { expect, test } from '@playwright/test';
 import fc from 'fast-check';
 import { registerUser, loginAndGetToken } from './helpers/auth-helper.js';
-import {
-  generateUserData,
-  validUserDataArbitrary,
-  invalidEmailArbitrary,
-  weakPasswordArbitrary,
-  validEmailArbitrary,
-  validPasswordArbitrary
-} from './helpers/test-data.js';
-
-const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo-api.testdino.com';
+import { generateUserData, validUserDataArbitrary } from './helpers/test-data.js';
 
 test.describe('Registration and Login API', () => {
-  
+  /** @type {{email: string, password: string}[]} */
+  const usersToCleanup = [];
+
+  // Wraps registerUser and auto-tracks credentials for afterEach cleanup
+  /**
+   * @param {import('@playwright/test').APIRequestContext} request
+   * @param {any} userData
+   */
+  async function registerAndTrack(request, userData) {
+    usersToCleanup.push({ email: userData.email, password: userData.password });
+    return registerUser(request, userData);
+  }
+
+  test.afterEach(async ({ request }) => {
+    for (const { email, password } of usersToCleanup) {
+      try {
+        const token = await loginAndGetToken(request, email, password).catch(() => null);
+        if (!token) continue;
+        const meRes = await request.get('/api/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!meRes.ok()) continue;
+        const userData = (await meRes.json())?.data?.data;
+        if (!userData) continue;
+        const userId = userData.id;
+        // Cancel any orders using PUT /api/cancleOrder
+        for (const order of userData.orders || []) {
+          const orderId = typeof order === 'string' ? order : (order._id || order.id);
+          if (!orderId) continue;
+          await request.put('/api/cancleOrder', {
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            data: { id: orderId, userId }
+          }).catch(() => {});
+        }
+        // Delete any addresses using DELETE /api/address/:id
+        for (const addr of userData.address || []) {
+          const addressId = typeof addr === 'string' ? addr : (addr._id || addr.id);
+          if (!addressId) continue;
+          await request.delete(`/api/address/${addressId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).catch(() => {});
+        }
+      } catch {}
+    }
+    usersToCleanup.length = 0;
+  });
+
   // ========== REGISTRATION TESTS ==========
   
   test('Register new user - POST /register - 200 success', { tag: '@api' }, async ({ request }) => {
+    /** @type {any} */
     const userData = generateUserData();
-    const { response, body } = await registerUser(request, userData);
+    const { response, body } = await registerAndTrack(request, userData);
     
     expect(response.status()).toBe(200);
     expect(body).toHaveProperty('success', true);
@@ -35,10 +73,11 @@ test.describe('Registration and Login API', () => {
   });
 
   test('Register duplicate email - POST /register - 400 already exists', { tag: '@api' }, async ({ request }) => {
+    /** @type {any} */
     const userData = generateUserData();
     
     // Register first time
-    await registerUser(request, userData);
+    await registerAndTrack(request, userData);
     
     // Try to register again with same email
     const { response, body } = await registerUser(request, userData);
@@ -48,7 +87,7 @@ test.describe('Registration and Login API', () => {
   });
 
   test('Registration with missing firstname returns 500', { tag: '@api' }, async ({ request }) => {
-    const response = await request.post(`${API_BASE_URL}/api/register`, {
+    const response = await request.post('/api/register', {
       data: { 
         lastname: 'User',
         email: `test_${Date.now()}@example.com`,
@@ -59,7 +98,7 @@ test.describe('Registration and Login API', () => {
   });
 
   test('Registration with missing lastname returns 500', { tag: '@api' }, async ({ request }) => {
-    const response = await request.post(`${API_BASE_URL}/api/register`, {
+    const response = await request.post('/api/register', {
       data: { 
         firstname: 'Test',
         email: `test_${Date.now()}@example.com`,
@@ -70,7 +109,7 @@ test.describe('Registration and Login API', () => {
   });
 
   test('Registration with missing email returns 500', { tag: '@api' }, async ({ request }) => {
-    const response = await request.post(`${API_BASE_URL}/api/register`, {
+    const response = await request.post('/api/register', {
       data: { 
         firstname: 'Test',
         lastname: 'User',
@@ -81,7 +120,7 @@ test.describe('Registration and Login API', () => {
   });
 
   test('Registration with missing password returns 500', { tag: '@api' }, async ({ request }) => {
-    const response = await request.post(`${API_BASE_URL}/api/register`, {
+    const response = await request.post('/api/register', {
       data: { 
         firstname: 'Test',
         lastname: 'User',
@@ -93,10 +132,11 @@ test.describe('Registration and Login API', () => {
 
   test('Property: Registration response never exposes password', { tag: '@api' }, async ({ request }) => {
     await fc.assert(
-      fc.asyncProperty(validUserDataArbitrary, async (userData) => {
+      fc.asyncProperty(validUserDataArbitrary, async (/** @type {any} */ userData) => {
         userData.email = `test_${Date.now()}_${Math.random().toString(36).substring(7)}@example.com`;
-        
-        const response = await request.post(`${API_BASE_URL}/api/register`, {
+        usersToCleanup.push({ email: userData.email, password: userData.password });
+
+        const response = await request.post('/api/register', {
           data: userData
         });
         
@@ -119,13 +159,14 @@ test.describe('Registration and Login API', () => {
   // ========== LOGIN TESTS ==========
   
   test('Login with valid credentials - POST /login - 200 + has token', { tag: '@api' }, async ({ request }) => {
+    /** @type {any} */
     const userData = generateUserData();
     
     // Register user first
-    await registerUser(request, userData);
+    await registerAndTrack(request, userData);
     
     // Login
-    const response = await request.post(`${API_BASE_URL}/api/login`, {
+    const response = await request.post('/api/login', {
       data: { email: userData.email, password: userData.password }
     });
     
@@ -143,13 +184,14 @@ test.describe('Registration and Login API', () => {
   });
 
   test('Login with wrong password - POST /login - 403 password mismatch', { tag: '@api' }, async ({ request }) => {
+    /** @type {any} */
     const userData = generateUserData();
     
     // Register user
-    await registerUser(request, userData);
+    await registerAndTrack(request, userData);
     
     // Try to login with wrong password
-    const response = await request.post(`${API_BASE_URL}/api/login`, {
+    const response = await request.post('/api/login', {
       data: { email: userData.email, password: 'WrongPassword123!' }
     });
     
@@ -160,7 +202,7 @@ test.describe('Registration and Login API', () => {
   });
 
   test('Login with unregistered email - POST /login - 401 not registered', { tag: '@api' }, async ({ request }) => {
-    const response = await request.post(`${API_BASE_URL}/api/login`, {
+    const response = await request.post('/api/login', {
       data: { 
         email: `nonexistent_${Date.now()}@example.com`,
         password: 'SomePassword123!'
@@ -175,7 +217,7 @@ test.describe('Registration and Login API', () => {
 
   test('Login with missing fields - POST /login - 400 fill all details', { tag: '@api' }, async ({ request }) => {
     // Missing email
-    let response = await request.post(`${API_BASE_URL}/api/login`, {
+    let response = await request.post('/api/login', {
       data: { password: 'SomePassword123!' }
     });
     expect(response.status()).toBe(400);
@@ -184,7 +226,7 @@ test.describe('Registration and Login API', () => {
     expect(body).toHaveProperty('message', 'Please fill all the details carefully');
     
     // Missing password
-    response = await request.post(`${API_BASE_URL}/api/login`, {
+    response = await request.post('/api/login', {
       data: { email: 'test@example.com' }
     });
     expect(response.status()).toBe(400);
@@ -194,8 +236,9 @@ test.describe('Registration and Login API', () => {
   });
 
   test('Verify JWT token is returned in response', { tag: '@api' }, async ({ request }) => {
+    /** @type {any} */
     const userData = generateUserData();
-    await registerUser(request, userData);
+    await registerAndTrack(request, userData);
     
     const token = await loginAndGetToken(request, userData.email, userData.password);
     
@@ -205,10 +248,11 @@ test.describe('Registration and Login API', () => {
   });
 
   test('Verify password is not returned in login response', { tag: '@api' }, async ({ request }) => {
+    /** @type {any} */
     const userData = generateUserData();
-    await registerUser(request, userData);
+    await registerAndTrack(request, userData);
     
-    const response = await request.post(`${API_BASE_URL}/api/login`, {
+    const response = await request.post('/api/login', {
       data: { email: userData.email, password: userData.password }
     });
     
@@ -221,16 +265,17 @@ test.describe('Registration and Login API', () => {
 
   test('Property: Valid login returns JWT token', { tag: '@api' }, async ({ request }) => {
     await fc.assert(
-      fc.asyncProperty(validUserDataArbitrary, async (userData) => {
+      fc.asyncProperty(validUserDataArbitrary, async (/** @type {any} */ userData) => {
         userData.email = `test_${Date.now()}_${Math.random().toString(36).substring(7)}@example.com`;
-        
+        usersToCleanup.push({ email: userData.email, password: userData.password });
+
         // Register user first
-        await request.post(`${API_BASE_URL}/api/register`, {
+        await request.post('/api/register', {
           data: userData
         });
         
         // Login
-        const loginResponse = await request.post(`${API_BASE_URL}/api/login`, {
+        const loginResponse = await request.post('/api/login', {
           data: { email: userData.email, password: userData.password }
         });
         

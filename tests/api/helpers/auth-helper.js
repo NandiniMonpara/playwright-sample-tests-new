@@ -1,16 +1,14 @@
 // @ts-check
 import { generateUserData } from './test-data.js';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo-api.testdino.com';
-
 /**
  * Registers a new test user
  * @param {import('@playwright/test').APIRequestContext} request - Playwright request context
  * @param {Object} userData - User registration data
- * @returns {Promise<Object>} Registration response
+ * @returns {Promise<{response: any, body: any}>} Registration response
  */
 export async function registerUser(request, userData) {
-  const response = await request.post(`${API_BASE_URL}/api/register`, {
+  const response = await request.post('/api/register', {
     data: userData
   });
   return { response, body: await response.json() };
@@ -24,7 +22,7 @@ export async function registerUser(request, userData) {
  * @returns {Promise<string>} JWT token
  */
 export async function loginAndGetToken(request, email, password) {
-  const response = await request.post(`${API_BASE_URL}/api/login`, {
+  const response = await request.post('/api/login', {
     data: { email, password }
   });
   
@@ -45,13 +43,14 @@ export async function loginAndGetToken(request, email, password) {
 /**
  * Creates a test user and returns authenticated token
  * @param {import('@playwright/test').APIRequestContext} request - Playwright request context
- * @returns {Promise<{token: string, user: Object}>} Token and user data
+ * @returns {Promise<{token: string, user: {email: string, password: string, firstname: string, lastname: string}}>} Token and user data
  */
 export async function createAuthenticatedUser(request) {
-  const userData = generateUserData();
+  /** @type {{email: string, password: string, firstname: string, lastname: string}} */
+  const userData = /** @type {any} */ (generateUserData());
   
   // Register user
-  const registerResponse = await request.post(`${API_BASE_URL}/api/register`, {
+  const registerResponse = await request.post('/api/register', {
     data: userData
   });
   
@@ -75,15 +74,56 @@ export async function createAuthenticatedUser(request) {
 }
 
 /**
+ * Cleans up all orders (cancel) and addresses (delete) for a test user
+ * @param {import('@playwright/test').APIRequestContext} request
+ * @param {string} token - JWT token of the user
+ */
+export async function cleanupUserData(request, token) {
+  try {
+    const meResponse = await request.get('/api/me', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!meResponse.ok()) return;
+
+    const userData = (await meResponse.json())?.data?.data;
+    if (!userData) return;
+
+    const userId = userData.id;
+
+    // Cancel all orders using PUT /api/cancleOrder
+    for (const order of userData.orders || []) {
+      const orderId = typeof order === 'string' ? order : (order._id || order.id);
+      if (!orderId) continue;
+      await request.put('/api/cancleOrder', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        data: { id: orderId, userId }
+      }).catch(() => {});
+    }
+
+    // Delete all addresses using DELETE /api/address/:id
+    for (const addr of userData.address || []) {
+      const addressId = typeof addr === 'string' ? addr : (addr._id || addr.id);
+      if (!addressId) continue;
+      await request.delete(`/api/address/${addressId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).catch(() => {});
+    }
+  } catch {
+    // Cleanup failure should never break tests
+  }
+}
+
+/**
  * Makes an authenticated API request
  * @param {import('@playwright/test').APIRequestContext} request - Playwright request context
  * @param {string} method - HTTP method
  * @param {string} url - Endpoint URL
  * @param {string} token - JWT token
- * @param {Object} data - Request payload
+ * @param {Object|null} data - Request payload
  * @returns {Promise<import('@playwright/test').APIResponse>} API response
  */
 export async function authenticatedRequest(request, method, url, token, data = null) {
+  /** @type {any} */
   const options = {
     headers: {
       'Authorization': `Bearer ${token}`,

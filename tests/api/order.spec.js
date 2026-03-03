@@ -3,14 +3,50 @@ import { expect, test } from '@playwright/test';
 import { createAuthenticatedUser, authenticatedRequest } from './helpers/auth-helper.js';
 import { generateOrderData } from './helpers/test-data.js';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo-api.testdino.com';
-
 test.describe('Order Operations API', () => {
-  
+  /** @type {string[]} */
+  const tokensToCleanup = [];
+
+  // Wraps createAuthenticatedUser and auto-tracks the token for afterEach cleanup
+  /**
+   * @param {import('@playwright/test').APIRequestContext} request
+   * @returns {Promise<{token: string, user: {email: string, password: string, firstname: string, lastname: string}}>}
+   */
+  async function createUser(request) {
+    /** @type {{token: string, user: {email: string, password: string, firstname: string, lastname: string}}} */
+    const result = await createAuthenticatedUser(request);
+    tokensToCleanup.push(result.token);
+    return result;
+  }
+
+  test.afterEach(async ({ request }) => {
+    for (const token of tokensToCleanup) {
+      try {
+        const meRes = await request.get('/api/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!meRes.ok()) continue;
+        const userData = (await meRes.json())?.data?.data;
+        if (!userData) continue;
+        const userId = userData.id;
+        // Cancel all orders using PUT /api/cancleOrder
+        for (const order of userData.orders || []) {
+          const orderId = typeof order === 'string' ? order : (order._id || order.id);
+          if (!orderId) continue;
+          await request.put('/api/cancleOrder', {
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            data: { id: orderId, userId }
+          }).catch(() => {});
+        }
+      } catch {}
+    }
+    tokensToCleanup.length = 0;
+  });
+
   test('Create order without token - POST /createOrder - 401 Token Missing', { tag: '@api' }, async ({ request }) => {
     const orderData = generateOrderData('test@example.com');
     
-    const response = await request.post(`${API_BASE_URL}/api/createOrder`, {
+    const response = await request.post('/api/createOrder', {
       data: orderData
     });
     
@@ -21,14 +57,14 @@ test.describe('Order Operations API', () => {
   });
 
   test('Create order with token - POST /createOrder - 200 + orderId', { tag: '@api' }, async ({ request }) => {
-    const { token, user } = await createAuthenticatedUser(request);
+    const { token, user } = await createUser(request);
     
     const orderData = generateOrderData(user.email);
     
     const response = await authenticatedRequest(
       request,
       'POST',
-      `${API_BASE_URL}/api/createOrder`,
+      '/api/createOrder',
       token,
       orderData
     );
@@ -42,12 +78,12 @@ test.describe('Order Operations API', () => {
   });
 
   test('Create order with missing product returns error', { tag: '@api' }, async ({ request }) => {
-    const { token, user } = await createAuthenticatedUser(request);
+    const { token, user } = await createUser(request);
     
     const response = await authenticatedRequest(
       request,
       'POST',
-      `${API_BASE_URL}/api/createOrder`,
+      '/api/createOrder',
       token,
       {
         quantity: 2,
@@ -63,12 +99,12 @@ test.describe('Order Operations API', () => {
   });
 
   test('Create order with missing quantity returns error', { tag: '@api' }, async ({ request }) => {
-    const { token, user } = await createAuthenticatedUser(request);
+    const { token, user } = await createUser(request);
     
     const response = await authenticatedRequest(
       request,
       'POST',
-      `${API_BASE_URL}/api/createOrder`,
+      '/api/createOrder',
       token,
       {
         product: [{ id: '1', name: 'Test', price: 29.99, quantity: 2 }],
@@ -83,12 +119,12 @@ test.describe('Order Operations API', () => {
   });
 
   test('Create order with missing address returns error', { tag: '@api' }, async ({ request }) => {
-    const { token, user } = await createAuthenticatedUser(request);
+    const { token, user } = await createUser(request);
     
     const response = await authenticatedRequest(
       request,
       'POST',
-      `${API_BASE_URL}/api/createOrder`,
+      '/api/createOrder',
       token,
       {
         product: [{ id: '1', name: 'Test', price: 29.99, quantity: 2 }],
@@ -103,25 +139,25 @@ test.describe('Order Operations API', () => {
   });
 
   test('Get order by ID - GET /findOrder/:id - 200 order data', { tag: '@api' }, async ({ request }) => {
-    const { token, user } = await createAuthenticatedUser(request);
+    const { token, user } = await createUser(request);
     
     // Create order first
     const orderData = generateOrderData(user.email);
     const createResponse = await authenticatedRequest(
       request,
       'POST',
-      `${API_BASE_URL}/api/createOrder`,
+      '/api/createOrder',
       token,
       orderData
     );
     const createBody = await createResponse.json();
     const orderId = createBody.orderId;
-    
+
     // Get order
     const response = await authenticatedRequest(
       request,
       'GET',
-      `${API_BASE_URL}/api/findOrder/${orderId}`,
+      `/api/findOrder/${orderId}`,
       token
     );
     
@@ -138,18 +174,18 @@ test.describe('Order Operations API', () => {
   });
 
   test('Get order without token returns 401', { tag: '@api' }, async ({ request }) => {
-    const response = await request.get(`${API_BASE_URL}/api/findOrder/123`);
+    const response = await request.get('/api/findOrder/123');
     
     expect(response.status()).toBe(401);
   });
 
   test('Get order with invalid ID - GET /findOrder/badid - 400 or 500 error', { tag: '@api' }, async ({ request }) => {
-    const { token } = await createAuthenticatedUser(request);
+    const { token } = await createUser(request);
     
     const response = await authenticatedRequest(
       request,
       'GET',
-      `${API_BASE_URL}/api/findOrder/badid`,
+      '/api/findOrder/badid',
       token
     );
     
@@ -159,13 +195,13 @@ test.describe('Order Operations API', () => {
   });
 
   test('Get non-existent order returns 404', { tag: '@api' }, async ({ request }) => {
-    const { token } = await createAuthenticatedUser(request);
+    const { token } = await createUser(request);
     
     // Use valid MongoDB ObjectId format but non-existent
     const response = await authenticatedRequest(
       request,
       'GET',
-      `${API_BASE_URL}/api/findOrder/507f1f77bcf86cd799439011`,
+      '/api/findOrder/507f1f77bcf86cd799439011',
       token
     );
     
@@ -175,30 +211,30 @@ test.describe('Order Operations API', () => {
   });
 
   test('Cancel order - PUT /cancleOrder - 200 cancelled', { tag: '@api' }, async ({ request }) => {
-    const { token, user } = await createAuthenticatedUser(request);
+    const { token, user } = await createUser(request);
     
     // Get user ID
-    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meResponse = await authenticatedRequest(request, 'GET', '/api/me', token);
     const meBody = await meResponse.json();
     const userId = meBody.data.data.id;
-    
+
     // Create order first
     const orderData = generateOrderData(user.email);
     const createResponse = await authenticatedRequest(
       request,
       'POST',
-      `${API_BASE_URL}/api/createOrder`,
+      '/api/createOrder',
       token,
       orderData
     );
     const createBody = await createResponse.json();
     const orderId = createBody.orderId;
-    
+
     // Cancel order
     const response = await authenticatedRequest(
       request,
       'PUT',
-      `${API_BASE_URL}/api/cancleOrder`,
+      '/api/cancleOrder',
       token,
       { id: orderId, userId: userId }
     );
@@ -211,7 +247,7 @@ test.describe('Order Operations API', () => {
   });
 
   test('Cancel order without token returns 401', { tag: '@api' }, async ({ request }) => {
-    const response = await request.put(`${API_BASE_URL}/api/cancleOrder`, {
+    const response = await request.put('/api/cancleOrder', {
       data: { id: '123', userId: '456' }
     });
     
@@ -219,34 +255,34 @@ test.describe('Order Operations API', () => {
   });
 
   test('Cancel order without order ID returns 404', { tag: '@api' }, async ({ request }) => {
-    const { token } = await createAuthenticatedUser(request);
+    const { token } = await createUser(request);
     
-    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meResponse = await authenticatedRequest(request, 'GET', '/api/me', token);
     const meBody = await meResponse.json();
     const userId = meBody.data.data.id;
-    
+
     const response = await authenticatedRequest(
       request,
       'PUT',
-      `${API_BASE_URL}/api/cancleOrder`,
+      '/api/cancleOrder',
       token,
       { userId: userId }
     );
-    
+
     expect([400, 404, 500]).toContain(response.status());
   });
 
   test('Cancel non-existent order returns 404', { tag: '@api' }, async ({ request }) => {
-    const { token } = await createAuthenticatedUser(request);
+    const { token } = await createUser(request);
     
-    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meResponse = await authenticatedRequest(request, 'GET', '/api/me', token);
     const meBody = await meResponse.json();
     const userId = meBody.data.data.id;
-    
+
     const response = await authenticatedRequest(
       request,
       'PUT',
-      `${API_BASE_URL}/api/cancleOrder`,
+      '/api/cancleOrder',
       token,
       { id: '507f1f77bcf86cd799439011', userId: userId }
     );
@@ -257,14 +293,14 @@ test.describe('Order Operations API', () => {
   });
 
   test('Verify order is added to user orders array', { tag: '@api' }, async ({ request }) => {
-    const { token, user } = await createAuthenticatedUser(request);
+    const { token, user } = await createUser(request);
     
     // Create order
     const orderData = generateOrderData(user.email);
-    await authenticatedRequest(request, 'POST', `${API_BASE_URL}/api/createOrder`, token, orderData);
-    
+    await authenticatedRequest(request, 'POST', '/api/createOrder', token, orderData);
+
     // Get user profile
-    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meResponse = await authenticatedRequest(request, 'GET', '/api/me', token);
     const meBody = await meResponse.json();
     
     expect(meBody.data.data.orders).toBeDefined();

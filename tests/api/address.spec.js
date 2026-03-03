@@ -2,16 +2,50 @@
 import { expect, test } from '@playwright/test';
 import fc from 'fast-check';
 import { createAuthenticatedUser, authenticatedRequest } from './helpers/auth-helper.js';
+
 import { generateAddressData, validAddressArbitrary } from './helpers/test-data.js';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo-api.testdino.com';
-
 test.describe('Address CRUD API', () => {
-  
+  /** @type {string[]} */
+  const tokensToCleanup = [];
+
+  // Wraps createAuthenticatedUser and auto-tracks the token for afterEach cleanup
+  /**
+   * @param {import('@playwright/test').APIRequestContext} request
+   * @returns {Promise<{token: string, user: {email: string, password: string, firstname: string, lastname: string}}>}
+   */
+  async function createUser(request) {
+    /** @type {{token: string, user: {email: string, password: string, firstname: string, lastname: string}}} */
+    const result = await createAuthenticatedUser(request);
+    tokensToCleanup.push(result.token);
+    return result;
+  }
+
+  test.afterEach(async ({ request }) => {
+    for (const token of tokensToCleanup) {
+      try {
+        const meRes = await request.get('/api/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!meRes.ok()) continue;
+        const addresses = (await meRes.json())?.data?.data?.address || [];
+        // Delete all addresses using DELETE /api/address/:id
+        for (const addr of addresses) {
+          const addressId = typeof addr === 'string' ? addr : (addr._id || addr.id);
+          if (!addressId) continue;
+          await request.delete(`/api/address/${addressId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).catch(() => {});
+        }
+      } catch {}
+    }
+    tokensToCleanup.length = 0;
+  });
+
   test('Add address without token - POST /address - 401 Token Missing', { tag: '@api' }, async ({ request }) => {
     const addressData = generateAddressData('someUserId');
     
-    const response = await request.post(`${API_BASE_URL}/api/address`, {
+    const response = await request.post('/api/address', {
       data: addressData
     });
     
@@ -22,10 +56,10 @@ test.describe('Address CRUD API', () => {
   });
 
   test('Add address with token - POST /address - 200 added', { tag: '@api' }, async ({ request }) => {
-    const { token } = await createAuthenticatedUser(request);
+    const { token } = await createUser(request);
     
     // Get user ID first
-    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meResponse = await authenticatedRequest(request, 'GET', '/api/me', token);
     const meBody = await meResponse.json();
     const userId = meBody.data.data.id;
     
@@ -34,7 +68,7 @@ test.describe('Address CRUD API', () => {
     const response = await authenticatedRequest(
       request,
       'POST',
-      `${API_BASE_URL}/api/address`,
+      '/api/address',
       token,
       addressData
     );
@@ -49,23 +83,23 @@ test.describe('Address CRUD API', () => {
   });
 
   test('Add duplicate address - POST /address - 400 already exists', { tag: '@api' }, async ({ request }) => {
-    const { token } = await createAuthenticatedUser(request);
+    const { token } = await createUser(request);
     
     // Get user ID
-    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meResponse = await authenticatedRequest(request, 'GET', '/api/me', token);
     const meBody = await meResponse.json();
     const userId = meBody.data.data.id;
     
     const addressData = generateAddressData(userId);
     
     // Add address first time
-    await authenticatedRequest(request, 'POST', `${API_BASE_URL}/api/address`, token, addressData);
+    await authenticatedRequest(request, 'POST', '/api/address', token, addressData);
     
     // Try to add same address again
     const response = await authenticatedRequest(
       request,
       'POST',
-      `${API_BASE_URL}/api/address`,
+      '/api/address',
       token,
       addressData
     );
@@ -77,9 +111,9 @@ test.describe('Address CRUD API', () => {
   });
 
   test('Add address with missing required fields returns 400 or 500', { tag: '@api' }, async ({ request }) => {
-    const { token } = await createAuthenticatedUser(request);
+    const { token } = await createUser(request);
     
-    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meResponse = await authenticatedRequest(request, 'GET', '/api/me', token);
     const meBody = await meResponse.json();
     const userId = meBody.data.data.id;
     
@@ -87,7 +121,7 @@ test.describe('Address CRUD API', () => {
     const response = await authenticatedRequest(
       request,
       'POST',
-      `${API_BASE_URL}/api/address`,
+      '/api/address',
       token,
       {
         id: userId,
@@ -105,10 +139,10 @@ test.describe('Address CRUD API', () => {
   });
 
   test('Update address - PUT /updateAddress - 200 updated', { tag: '@api' }, async ({ request }) => {
-    const { token } = await createAuthenticatedUser(request);
+    const { token } = await createUser(request);
     
     // Get user ID
-    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meResponse = await authenticatedRequest(request, 'GET', '/api/me', token);
     const meBody = await meResponse.json();
     const userId = meBody.data.data.id;
     
@@ -117,7 +151,7 @@ test.describe('Address CRUD API', () => {
     const addResponse = await authenticatedRequest(
       request,
       'POST',
-      `${API_BASE_URL}/api/address`,
+      '/api/address',
       token,
       addressData
     );
@@ -139,7 +173,7 @@ test.describe('Address CRUD API', () => {
     const updateResponse = await authenticatedRequest(
       request,
       'PUT',
-      `${API_BASE_URL}/api/updateAddress`,
+      '/api/updateAddress',
       token,
       updatedData
     );
@@ -153,7 +187,7 @@ test.describe('Address CRUD API', () => {
   });
 
   test('Update address without token returns 401', { tag: '@api' }, async ({ request }) => {
-    const response = await request.put(`${API_BASE_URL}/api/updateAddress`, {
+    const response = await request.put('/api/updateAddress', {
       data: { id: '123', userId: '456', street: 'New Street' }
     });
     
@@ -161,12 +195,12 @@ test.describe('Address CRUD API', () => {
   });
 
   test('Update address without address ID returns 400', { tag: '@api' }, async ({ request }) => {
-    const { token } = await createAuthenticatedUser(request);
+    const { token } = await createUser(request);
     
     const response = await authenticatedRequest(
       request,
       'PUT',
-      `${API_BASE_URL}/api/updateAddress`,
+      '/api/updateAddress',
       token,
       { userId: '123', street: 'New Street' }
     );
@@ -177,10 +211,10 @@ test.describe('Address CRUD API', () => {
   });
 
   test('Delete address - DELETE /address/:id - 200 deleted', { tag: '@api' }, async ({ request }) => {
-    const { token } = await createAuthenticatedUser(request);
+    const { token } = await createUser(request);
     
     // Get user ID
-    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meResponse = await authenticatedRequest(request, 'GET', '/api/me', token);
     const meBody = await meResponse.json();
     const userId = meBody.data.data.id;
     
@@ -189,7 +223,7 @@ test.describe('Address CRUD API', () => {
     const addResponse = await authenticatedRequest(
       request,
       'POST',
-      `${API_BASE_URL}/api/address`,
+      '/api/address',
       token,
       addressData
     );
@@ -200,7 +234,7 @@ test.describe('Address CRUD API', () => {
     const deleteResponse = await authenticatedRequest(
       request,
       'DELETE',
-      `${API_BASE_URL}/api/address/${addressId}`,
+      `/api/address/${addressId}`,
       token
     );
     
@@ -211,18 +245,18 @@ test.describe('Address CRUD API', () => {
   });
 
   test('Delete address without token returns 401', { tag: '@api' }, async ({ request }) => {
-    const response = await request.delete(`${API_BASE_URL}/api/address/123`);
+    const response = await request.delete('/api/address/123');
     
     expect(response.status()).toBe(401);
   });
 
   test('Delete non-existent address returns 404', { tag: '@api' }, async ({ request }) => {
-    const { token } = await createAuthenticatedUser(request);
+    const { token } = await createUser(request);
     
     const response = await authenticatedRequest(
       request,
       'DELETE',
-      `${API_BASE_URL}/api/address/507f1f77bcf86cd799439011`,
+      '/api/address/507f1f77bcf86cd799439011',
       token
     );
     
@@ -233,19 +267,19 @@ test.describe('Address CRUD API', () => {
 
   test('Property: Address creation returns valid address', { tag: '@api' }, async ({ request }) => {
     // Create user once and reuse for all property test iterations
-    const { token } = await createAuthenticatedUser(request);
-    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const { token } = await createUser(request);
+    const meResponse = await authenticatedRequest(request, 'GET', '/api/me', token);
     const meBody = await meResponse.json();
     const userId = meBody.data.data.id;
     
     await fc.assert(
       fc.asyncProperty(validAddressArbitrary, async (addressData) => {
-        addressData.id = userId;
+        /** @type {any} */ (addressData).id = userId;
         
         const response = await authenticatedRequest(
           request,
           'POST',
-          `${API_BASE_URL}/api/address`,
+          '/api/address',
           token,
           addressData
         );

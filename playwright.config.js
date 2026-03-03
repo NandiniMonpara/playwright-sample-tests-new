@@ -21,13 +21,13 @@ export default defineConfig({
     }],
     ['blob', { outputDir: 'blob-report' }],
     ['json', { outputFile: './playwright-report/report.json' }],
-    ['list'],
-    ['@testdino/playwright', {
-      token: "trx_staging_8494aa9424c2b968b44e3a99508ca5b07f035a49951dbd97ccaa7de5c850f14b",
+    ['list']
+    /* ['@testdino/playwright', {
+     token: "trx_staging_8494aa9424c2b968b44e3a99508ca5b07f035a49951dbd97ccaa7de5c850f14b",
       serverUrl: 'https://staging-api.testdino.com',
       debug: false,
       ciRunId: `ci-run-${process.env.GITHUB_RUN_ID}` || 'local-run-id',
-    }],
+    }],*/
   ],
 
   use: {
@@ -66,7 +66,10 @@ export default defineConfig({
     },
     {
       name: 'api',
-      use: { ...devices['API'] },
+      use: { 
+        ...devices['API'],
+        baseURL: process.env.API_BASE_URL || 'https://storedemo-api.testdino.com'
+      },
       grep: /@api/,
     },
   ],
