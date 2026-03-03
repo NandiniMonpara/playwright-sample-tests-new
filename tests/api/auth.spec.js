@@ -11,7 +11,7 @@ import {
   validPasswordArbitrary
 } from './helpers/test-data.js';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo.testdino.com';
+const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo-api.testdino.com';
 
 test.describe('Registration and Login API', () => {
   

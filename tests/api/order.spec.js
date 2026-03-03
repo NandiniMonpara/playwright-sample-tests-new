@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { createAuthenticatedUser, authenticatedRequest } from './helpers/auth-helper.js';
 import { generateOrderData } from './helpers/test-data.js';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo.testdino.com';
+const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo-api.testdino.com';
 
 test.describe('Order Operations API', () => {
   

@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { createAuthenticatedUser, authenticatedRequest } from './helpers/auth-helper.js';
 import { generateUserData, validNameArbitrary, validPasswordArbitrary } from './helpers/test-data.js';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo.testdino.com';
+const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo-api.testdino.com';
 
 test.describe('User Profile and Password Reset API', () => {
   

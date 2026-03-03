@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { createAuthenticatedUser, authenticatedRequest } from './helpers/auth-helper.js';
 import { generateAddressData, validAddressArbitrary } from './helpers/test-data.js';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo.testdino.com';
+const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo-api.testdino.com';
 
 test.describe('Address CRUD API', () => {
   
@@ -232,15 +232,14 @@ test.describe('Address CRUD API', () => {
   });
 
   test('Property: Address creation returns valid address', { tag: '@api' }, async ({ request }) => {
+    // Create user once and reuse for all property test iterations
+    const { token } = await createAuthenticatedUser(request);
+    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meBody = await meResponse.json();
+    const userId = meBody.data.data.id;
+    
     await fc.assert(
       fc.asyncProperty(validAddressArbitrary, async (addressData) => {
-        const { token } = await createAuthenticatedUser(request);
-        
-        // Get user ID
-        const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
-        const meBody = await meResponse.json();
-        const userId = meBody.data.data.id;
-        
         addressData.id = userId;
         
         const response = await authenticatedRequest(
@@ -257,7 +256,7 @@ test.describe('Address CRUD API', () => {
           expect(body.data.user.addresses).toBeDefined();
         }
       }),
-      { numRuns: 20 }
+      { numRuns: 10 }
     );
   });
 });

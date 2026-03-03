@@ -1,7 +1,7 @@
 // @ts-check
 import { generateUserData } from './test-data.js';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo.testdino.com';
+const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo-api.testdino.com';
 
 /**
  * Registers a new test user
