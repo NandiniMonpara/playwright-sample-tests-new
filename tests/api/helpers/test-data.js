@@ -17,51 +17,65 @@ export function randomString(length = 8) {
 
 /**
  * Generates unique user data for registration
- * @returns {Object} User data with email, password, name, phone
+ * @returns {Object} User data with email, password, firstname, lastname
  */
 export function generateUserData() {
   const uniqueId = randomString(8);
   return {
     email: `testuser_${uniqueId}@example.com`,
     password: `Pass${uniqueId}123!`,
-    name: `Test User ${uniqueId}`,
-    phone: `555${Math.floor(Math.random() * 10000000).toString().padStart(7, '0')}`
+    firstname: `Test${uniqueId}`,
+    lastname: `User${uniqueId}`
   };
 }
 
 /**
- * Generates valid address data
- * @returns {Object} Address data with street, city, state, zipCode, country
+ * Generates valid address data (backend format)
+ * @param {string} userId - User ID for the address
+ * @returns {Object} Address data with id and nested address object
  */
-export function generateAddressData() {
+export function generateAddressData(userId = '') {
   const uniqueId = randomString(6);
   return {
-    street: `${Math.floor(Math.random() * 9999) + 1} Main St ${uniqueId}`,
-    city: `City${uniqueId}`,
-    state: `State${uniqueId}`,
-    zipCode: `${Math.floor(Math.random() * 90000) + 10000}`,
-    country: 'USA',
-    isDefault: false
+    id: userId,
+    address: {
+      firstname: `Test${uniqueId}`,
+      email: `test${uniqueId}@example.com`,
+      street: `${Math.floor(Math.random() * 9999) + 1} Main St ${uniqueId}`,
+      city: `City${uniqueId}`,
+      state: `State${uniqueId}`,
+      zipCode: `${Math.floor(Math.random() * 90000) + 10000}`,
+      country: 'USA'
+    }
   };
 }
 
 /**
- * Generates valid order data
- * @param {Array} items - Order items
- * @param {string} addressId - Shipping address ID
+ * Generates valid order data (backend format)
+ * @param {string} email - User email
  * @returns {Object} Order data
  */
-export function generateOrderData(items, addressId) {
+export function generateOrderData(email = 'test@example.com') {
   return {
-    items: items || [
+    product: [
       {
-        productId: '1',
-        quantity: 2,
-        price: 29.99
+        id: '1',
+        name: 'Test Product',
+        price: 29.99,
+        quantity: 2
       }
     ],
-    addressId: addressId,
-    paymentMethod: 'credit_card'
+    quantity: 2,
+    address: {
+      street: '123 Test St',
+      city: 'Test City',
+      state: 'Test State',
+      zipCode: '12345',
+      country: 'USA'
+    },
+    paymentMethod: 'credit_card',
+    totalAmount: 59.98,
+    email: email
   };
 }
 
@@ -110,20 +124,23 @@ export const validPhoneArbitrary = fc.string({ minLength: 10, maxLength: 15 })
 export const validUserDataArbitrary = fc.record({
   email: validEmailArbitrary,
   password: validPasswordArbitrary,
-  name: validNameArbitrary,
-  phone: validPhoneArbitrary
+  firstname: validNameArbitrary,
+  lastname: validNameArbitrary
 });
 
 /**
- * Arbitrary for valid address data
+ * Arbitrary for valid address data (backend format)
  */
 export const validAddressArbitrary = fc.record({
-  street: fc.string({ minLength: 1, maxLength: 200 }),
-  city: fc.string({ minLength: 1, maxLength: 100 }),
-  state: fc.string({ minLength: 1, maxLength: 100 }),
-  zipCode: fc.string({ minLength: 5, maxLength: 10 }),
-  country: fc.string({ minLength: 2, maxLength: 100 }),
-  isDefault: fc.boolean()
+  address: fc.record({
+    firstname: fc.string({ minLength: 1, maxLength: 50 }),
+    email: validEmailArbitrary,
+    street: fc.string({ minLength: 1, maxLength: 200 }),
+    city: fc.string({ minLength: 1, maxLength: 100 }),
+    state: fc.string({ minLength: 1, maxLength: 100 }),
+    zipCode: fc.string({ minLength: 5, maxLength: 10 }),
+    country: fc.string({ minLength: 2, maxLength: 100 })
+  })
 });
 
 /**

@@ -33,7 +33,13 @@ export async function loginAndGetToken(request, email, password) {
   }
   
   const body = await response.json();
-  return body.token;
+  
+  // Token is in body.user.token
+  if (body.user && body.user.token) {
+    return body.user.token;
+  }
+  
+  throw new Error('Token not found in login response');
 }
 
 /**
@@ -49,8 +55,9 @@ export async function createAuthenticatedUser(request) {
     data: userData
   });
   
-  if (registerResponse.status() !== 200 && registerResponse.status() !== 201) {
-    throw new Error(`Registration failed with status ${registerResponse.status()}`);
+  if (registerResponse.status() !== 200) {
+    const body = await registerResponse.json();
+    throw new Error(`Registration failed: ${body.message || registerResponse.status()}`);
   }
   
   // Login to get token
@@ -61,8 +68,8 @@ export async function createAuthenticatedUser(request) {
     user: {
       email: userData.email,
       password: userData.password,
-      name: userData.name,
-      phone: userData.phone
+      firstname: userData.firstname,
+      lastname: userData.lastname
     }
   };
 }

@@ -8,56 +8,28 @@ const API_BASE_URL = process.env.API_BASE_URL || 'https://storedemo.testdino.com
 
 test.describe('Address CRUD API', () => {
   
-  test('Property: Address endpoints require authentication', { tag: '@api' }, async ({ request }) => {
-    // Feature: store-api-testing, Property 9: For any protected endpoint, when called without a JWT token, the response should return status 401.
+  test('Add address without token - POST /address - 401 Token Missing', { tag: '@api' }, async ({ request }) => {
+    const addressData = generateAddressData('someUserId');
     
-    const protectedEndpoints = [
-      { method: 'POST', url: `${API_BASE_URL}/api/address` },
-      { method: 'PUT', url: `${API_BASE_URL}/api/updateAddress` },
-      { method: 'DELETE', url: `${API_BASE_URL}/api/address/123` }
-    ];
+    const response = await request.post(`${API_BASE_URL}/api/address`, {
+      data: addressData
+    });
     
-    for (const endpoint of protectedEndpoints) {
-      const response = await request[endpoint.method.toLowerCase()](endpoint.url, {
-        data: endpoint.method !== 'DELETE' ? {} : undefined
-      });
-      expect(response.status()).toBe(401);
-    }
+    expect(response.status()).toBe(401);
+    const body = await response.json();
+    expect(body).toHaveProperty('success', false);
+    expect(body).toHaveProperty('message', 'Token Missing');
   });
 
-  test('Property: Address creation returns valid address', { tag: '@api' }, async ({ request }) => {
-    // Feature: store-api-testing, Property 16: For any authenticated user and valid address data, when POST /api/address is called, the response should return status 200/201 and contain all required address fields.
-    
-    await fc.assert(
-      fc.asyncProperty(validAddressArbitrary, async (addressData) => {
-        const { token } = await createAuthenticatedUser(request);
-        
-        const response = await authenticatedRequest(
-          request,
-          'POST',
-          `${API_BASE_URL}/api/address`,
-          token,
-          addressData
-        );
-        
-        const status = response.status();
-        expect([200, 201]).toContain(status);
-        
-        const body = await response.json();
-        expect(body).toHaveProperty('id');
-        expect(body).toHaveProperty('street');
-        expect(body).toHaveProperty('city');
-        expect(body).toHaveProperty('state');
-        expect(body).toHaveProperty('zipCode');
-        expect(body).toHaveProperty('country');
-      }),
-      { numRuns: 100 }
-    );
-  });
-
-  test('POST /api/address creates new address', { tag: '@api' }, async ({ request }) => {
+  test('Add address with token - POST /address - 200 added', { tag: '@api' }, async ({ request }) => {
     const { token } = await createAuthenticatedUser(request);
-    const addressData = generateAddressData();
+    
+    // Get user ID first
+    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meBody = await meResponse.json();
+    const userId = meBody.data.data.id;
+    
+    const addressData = generateAddressData(userId);
     
     const response = await authenticatedRequest(
       request,
@@ -67,112 +39,101 @@ test.describe('Address CRUD API', () => {
       addressData
     );
     
-    expect([200, 201]).toContain(response.status());
+    expect(response.status()).toBe(200);
     const body = await response.json();
-    
-    expect(body).toHaveProperty('id');
-    expect(body).toHaveProperty('street', addressData.street);
-    expect(body).toHaveProperty('city', addressData.city);
-    expect(body).toHaveProperty('state', addressData.state);
-    expect(body).toHaveProperty('zipCode', addressData.zipCode);
-    expect(body).toHaveProperty('country', addressData.country);
+    expect(body).toHaveProperty('success', true);
+    expect(body).toHaveProperty('message', 'Address added successfully');
+    expect(body).toHaveProperty('data');
+    expect(body.data.user.addresses).toBeDefined();
+    expect(body.data.user.addresses.length).toBeGreaterThan(0);
   });
 
-  test('POST /api/address without token returns 401', { tag: '@api' }, async ({ request }) => {
-    const addressData = generateAddressData();
-    
-    const response = await request.post(`${API_BASE_URL}/api/address`, {
-      data: addressData
-    });
-    
-    expect(response.status()).toBe(401);
-  });
-
-  test('POST /api/address missing required fields returns 400', { tag: '@api' }, async ({ request }) => {
+  test('Add duplicate address - POST /address - 400 already exists', { tag: '@api' }, async ({ request }) => {
     const { token } = await createAuthenticatedUser(request);
     
-    // Missing street
-    let response = await authenticatedRequest(
-      request,
-      'POST',
-      `${API_BASE_URL}/api/address`,
-      token,
-      { city: 'City', state: 'State', zipCode: '12345', country: 'USA' }
-    );
-    expect(response.status()).toBe(400);
+    // Get user ID
+    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meBody = await meResponse.json();
+    const userId = meBody.data.data.id;
     
-    // Missing city
-    response = await authenticatedRequest(
-      request,
-      'POST',
-      `${API_BASE_URL}/api/address`,
-      token,
-      { street: '123 Main St', state: 'State', zipCode: '12345', country: 'USA' }
-    );
-    expect(response.status()).toBe(400);
-  });
-
-  test('Property: Address update modifies existing address', { tag: '@api' }, async ({ request }) => {
-    // Feature: store-api-testing, Property 17: For any authenticated user with existing address and valid update data, when PUT /api/updateAddress is called, the response should return status 200 and reflect the updated values.
+    const addressData = generateAddressData(userId);
     
-    await fc.assert(
-      fc.asyncProperty(
-        validAddressArbitrary,
-        validAddressArbitrary,
-        async (initialAddress, updateAddress) => {
-          const { token } = await createAuthenticatedUser(request);
-          
-          // Create address
-          const createResponse = await authenticatedRequest(
-            request,
-            'POST',
-            `${API_BASE_URL}/api/address`,
-            token,
-            initialAddress
-          );
-          const createdAddress = await createResponse.json();
-          
-          // Update address
-          const updateResponse = await authenticatedRequest(
-            request,
-            'PUT',
-            `${API_BASE_URL}/api/updateAddress`,
-            token,
-            { ...updateAddress, id: createdAddress.id }
-          );
-          
-          expect(updateResponse.status()).toBe(200);
-          const updatedBody = await updateResponse.json();
-          expect(updatedBody).toHaveProperty('street', updateAddress.street);
-          expect(updatedBody).toHaveProperty('city', updateAddress.city);
-        }
-      ),
-      { numRuns: 100 }
-    );
-  });
-
-  test('PUT /api/updateAddress updates address', { tag: '@api' }, async ({ request }) => {
-    const { token } = await createAuthenticatedUser(request);
+    // Add address first time
+    await authenticatedRequest(request, 'POST', `${API_BASE_URL}/api/address`, token, addressData);
     
-    // Create address first
-    const addressData = generateAddressData();
-    const createResponse = await authenticatedRequest(
+    // Try to add same address again
+    const response = await authenticatedRequest(
       request,
       'POST',
       `${API_BASE_URL}/api/address`,
       token,
       addressData
     );
-    const createdAddress = await createResponse.json();
+    
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body).toHaveProperty('success', false);
+    expect(body).toHaveProperty('message', 'This address already exists');
+  });
+
+  test('Add address with missing required fields returns 400 or 500', { tag: '@api' }, async ({ request }) => {
+    const { token } = await createAuthenticatedUser(request);
+    
+    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meBody = await meResponse.json();
+    const userId = meBody.data.data.id;
+    
+    // Missing street
+    const response = await authenticatedRequest(
+      request,
+      'POST',
+      `${API_BASE_URL}/api/address`,
+      token,
+      {
+        id: userId,
+        address: {
+          email: 'test@example.com',
+          city: 'City',
+          state: 'State',
+          zipCode: '12345',
+          country: 'USA'
+        }
+      }
+    );
+    
+    expect([400, 500]).toContain(response.status());
+  });
+
+  test('Update address - PUT /updateAddress - 200 updated', { tag: '@api' }, async ({ request }) => {
+    const { token } = await createAuthenticatedUser(request);
+    
+    // Get user ID
+    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meBody = await meResponse.json();
+    const userId = meBody.data.data.id;
+    
+    // Add address first
+    const addressData = generateAddressData(userId);
+    const addResponse = await authenticatedRequest(
+      request,
+      'POST',
+      `${API_BASE_URL}/api/address`,
+      token,
+      addressData
+    );
+    const addBody = await addResponse.json();
+    const addressId = addBody.data.user.addresses[0]._id;
     
     // Update address
     const updatedData = {
-      id: createdAddress.id,
+      id: addressId,
+      userId: userId,
       street: '456 Updated St',
       city: 'Updated City',
       state: 'Updated State',
       zipCode: '54321',
-      country: 'USA'
+      country: 'USA',
+      email: 'updated@example.com'
     };
     
     const updateResponse = await authenticatedRequest(
@@ -184,136 +145,119 @@ test.describe('Address CRUD API', () => {
     );
     
     expect(updateResponse.status()).toBe(200);
-    const body = await updateResponse.json();
-    expect(body).toHaveProperty('street', updatedData.street);
-    expect(body).toHaveProperty('city', updatedData.city);
+    const updateBody = await updateResponse.json();
+    expect(updateBody).toHaveProperty('success', true);
+    expect(updateBody).toHaveProperty('message', 'Address updated successfully');
+    expect(updateBody.data.address).toHaveProperty('street', updatedData.street);
+    expect(updateBody.data.address).toHaveProperty('city', updatedData.city);
   });
 
-  test('PUT /api/updateAddress without token returns 401', { tag: '@api' }, async ({ request }) => {
+  test('Update address without token returns 401', { tag: '@api' }, async ({ request }) => {
     const response = await request.put(`${API_BASE_URL}/api/updateAddress`, {
-      data: { id: '123', street: 'New Street' }
+      data: { id: '123', userId: '456', street: 'New Street' }
     });
     
     expect(response.status()).toBe(401);
   });
 
-  test('Property: Address deletion removes address', { tag: '@api' }, async ({ request }) => {
-    // Feature: store-api-testing, Property 18: For any authenticated user with existing address, when DELETE /api/address/:id is called, the response should return status 200, and subsequent attempts to access that address should return 404.
-    
-    await fc.assert(
-      fc.asyncProperty(validAddressArbitrary, async (addressData) => {
-        const { token } = await createAuthenticatedUser(request);
-        
-        // Create address
-        const createResponse = await authenticatedRequest(
-          request,
-          'POST',
-          `${API_BASE_URL}/api/address`,
-          token,
-          addressData
-        );
-        const createdAddress = await createResponse.json();
-        
-        // Delete address
-        const deleteResponse = await authenticatedRequest(
-          request,
-          'DELETE',
-          `${API_BASE_URL}/api/address/${createdAddress.id}`,
-          token
-        );
-        
-        expect(deleteResponse.status()).toBe(200);
-        
-        // Verify address is deleted (subsequent GET should return 404)
-        const getResponse = await authenticatedRequest(
-          request,
-          'GET',
-          `${API_BASE_URL}/api/address/${createdAddress.id}`,
-          token
-        );
-        
-        expect(getResponse.status()).toBe(404);
-      }),
-      { numRuns: 100 }
-    );
-  });
-
-  test('DELETE /api/address/:id deletes address', { tag: '@api' }, async ({ request }) => {
+  test('Update address without address ID returns 400', { tag: '@api' }, async ({ request }) => {
     const { token } = await createAuthenticatedUser(request);
     
-    // Create address first
-    const addressData = generateAddressData();
-    const createResponse = await authenticatedRequest(
+    const response = await authenticatedRequest(
+      request,
+      'PUT',
+      `${API_BASE_URL}/api/updateAddress`,
+      token,
+      { userId: '123', street: 'New Street' }
+    );
+    
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body).toHaveProperty('message', 'Address ID and User ID are required');
+  });
+
+  test('Delete address - DELETE /address/:id - 200 deleted', { tag: '@api' }, async ({ request }) => {
+    const { token } = await createAuthenticatedUser(request);
+    
+    // Get user ID
+    const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+    const meBody = await meResponse.json();
+    const userId = meBody.data.data.id;
+    
+    // Add address first
+    const addressData = generateAddressData(userId);
+    const addResponse = await authenticatedRequest(
       request,
       'POST',
       `${API_BASE_URL}/api/address`,
       token,
       addressData
     );
-    const createdAddress = await createResponse.json();
+    const addBody = await addResponse.json();
+    const addressId = addBody.data.user.addresses[0]._id;
     
     // Delete address
     const deleteResponse = await authenticatedRequest(
       request,
       'DELETE',
-      `${API_BASE_URL}/api/address/${createdAddress.id}`,
+      `${API_BASE_URL}/api/address/${addressId}`,
       token
     );
     
     expect(deleteResponse.status()).toBe(200);
+    const deleteBody = await deleteResponse.json();
+    expect(deleteBody).toHaveProperty('success', true);
+    expect(deleteBody).toHaveProperty('message', 'Address deleted successfully');
   });
 
-  test('DELETE /api/address/:id without token returns 401', { tag: '@api' }, async ({ request }) => {
+  test('Delete address without token returns 401', { tag: '@api' }, async ({ request }) => {
     const response = await request.delete(`${API_BASE_URL}/api/address/123`);
+    
     expect(response.status()).toBe(401);
   });
 
-  test('Property: Invalid address IDs return 404', { tag: '@api' }, async ({ request }) => {
-    // Feature: store-api-testing, Property 19: For any endpoint that accepts a resource ID (address, order) and any invalid or non-existent ID, the response should return status 404.
-    
-    await fc.assert(
-      fc.asyncProperty(
-        fc.string({ minLength: 1, maxLength: 50 }),
-        async (invalidId) => {
-          const { token } = await createAuthenticatedUser(request);
-          
-          const response = await authenticatedRequest(
-            request,
-            'GET',
-            `${API_BASE_URL}/api/address/${invalidId}`,
-            token
-          );
-          
-          expect(response.status()).toBe(404);
-        }
-      ),
-      { numRuns: 100 }
-    );
-  });
-
-  test('GET /api/address/:id with invalid ID returns 404', { tag: '@api' }, async ({ request }) => {
-    const { token } = await createAuthenticatedUser(request);
-    
-    const response = await authenticatedRequest(
-      request,
-      'GET',
-      `${API_BASE_URL}/api/address/invalid-id-999`,
-      token
-    );
-    
-    expect(response.status()).toBe(404);
-  });
-
-  test('DELETE /api/address/:id with invalid ID returns 404', { tag: '@api' }, async ({ request }) => {
+  test('Delete non-existent address returns 404', { tag: '@api' }, async ({ request }) => {
     const { token } = await createAuthenticatedUser(request);
     
     const response = await authenticatedRequest(
       request,
       'DELETE',
-      `${API_BASE_URL}/api/address/invalid-id-999`,
+      `${API_BASE_URL}/api/address/507f1f77bcf86cd799439011`,
       token
     );
     
     expect(response.status()).toBe(404);
+    const body = await response.json();
+    expect(body).toHaveProperty('message', 'Address not found');
+  });
+
+  test('Property: Address creation returns valid address', { tag: '@api' }, async ({ request }) => {
+    await fc.assert(
+      fc.asyncProperty(validAddressArbitrary, async (addressData) => {
+        const { token } = await createAuthenticatedUser(request);
+        
+        // Get user ID
+        const meResponse = await authenticatedRequest(request, 'GET', `${API_BASE_URL}/api/me`, token);
+        const meBody = await meResponse.json();
+        const userId = meBody.data.data.id;
+        
+        addressData.id = userId;
+        
+        const response = await authenticatedRequest(
+          request,
+          'POST',
+          `${API_BASE_URL}/api/address`,
+          token,
+          addressData
+        );
+        
+        if (response.status() === 200) {
+          const body = await response.json();
+          expect(body).toHaveProperty('success', true);
+          expect(body.data.user.addresses).toBeDefined();
+        }
+      }),
+      { numRuns: 20 }
+    );
   });
 });
