@@ -30,23 +30,9 @@ test.describe('Registration and Login API', () => {
         const userData = (await meRes.json())?.data?.data;
         if (!userData) continue;
         const userId = userData.id;
-        // Cancel any orders using PUT /api/cancleOrder
-        for (const order of userData.orders || []) {
-          const orderId = typeof order === 'string' ? order : (order._id || order.id);
-          if (!orderId) continue;
-          await request.put('/api/cancleOrder', {
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            data: { id: orderId, userId }
-          }).catch(() => {});
-        }
-        // Delete any addresses using DELETE /api/address/:id
-        for (const addr of userData.address || []) {
-          const addressId = typeof addr === 'string' ? addr : (addr._id || addr.id);
-          if (!addressId) continue;
-          await request.delete(`/api/address/${addressId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }).catch(() => {});
-        }
+        await request.delete(`/api/${userId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => {});
       } catch {}
     }
     usersToCleanup.length = 0;

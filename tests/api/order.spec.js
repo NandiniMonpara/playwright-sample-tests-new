@@ -29,15 +29,9 @@ test.describe('Order Operations API', () => {
         const userData = (await meRes.json())?.data?.data;
         if (!userData) continue;
         const userId = userData.id;
-        // Cancel all orders using PUT /api/cancleOrder
-        for (const order of userData.orders || []) {
-          const orderId = typeof order === 'string' ? order : (order._id || order.id);
-          if (!orderId) continue;
-          await request.put('/api/cancleOrder', {
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            data: { id: orderId, userId }
-          }).catch(() => {});
-        }
+        await request.delete(`/api/${userId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => {});
       } catch {}
     }
     tokensToCleanup.length = 0;

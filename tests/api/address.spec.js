@@ -28,15 +28,12 @@ test.describe('Address CRUD API', () => {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!meRes.ok()) continue;
-        const addresses = (await meRes.json())?.data?.data?.address || [];
-        // Delete all addresses using DELETE /api/address/:id
-        for (const addr of addresses) {
-          const addressId = typeof addr === 'string' ? addr : (addr._id || addr.id);
-          if (!addressId) continue;
-          await request.delete(`/api/address/${addressId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }).catch(() => {});
-        }
+        const userData = (await meRes.json())?.data?.data;
+        if (!userData) continue;
+        const userId = userData.id;
+        await request.delete(`/api/${userId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => {});
       } catch {}
     }
     tokensToCleanup.length = 0;
